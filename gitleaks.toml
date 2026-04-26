@@ -1,24 +1,167 @@
-# Title for the gitleaks configuration file.
-title = "Gitleaks title"
+title = "YAS Monorepo Gitleaks Configuration"
+description = "Security scanning for YAS e-commerce platform"
 
-# Extend the base (this) configuration. When you extend a configuration
-# the base rules take precedence over the extended rules. I.e., if there are
-# duplicate rules in both the base configuration and the extended configuration
-# the base rules will override the extended rules.
-# Another thing to know with extending configurations is you can chain together
-# multiple configuration files to a depth of 2. Allowlist arrays are appended
-# and can contain duplicates.
-# useDefault and path can NOT be used at the same time. Choose one.
+# Extend with default gitleaks rules
 [extend]
-# useDefault will extend the base configuration with the default gitleaks config:
-# https://github.com/zricethezav/gitleaks/blob/master/config/gitleaks.toml
 useDefault = true
 
+# =====================================
+# GLOBAL ALLOW LIST
+# =====================================
 [allowlist]
-description = "global allow list"
+description = "Global allowlist for YAS project"
+
+# Exclude test/sample files that intentionally contain sensitive-like strings
 paths = [
+  # Keycloak test/demo files
   '''test-realm.json''',
   '''realm-export''',
-  '''keycloak-yas-realm-import.yaml''',
-  '''target'''
+  '''realm-export\.json''',
+  '''keycloak-yas-realm-import\.yaml''',
+  '''identity/realm-export\.json''',
+  '''identity/themes''',
+  
+  # Build artifacts & target directories
+  '''target''',
+  '''\.m2''',
+  '''node_modules''',
+  '''dist''',
+  '''build''',
+  
+  # Docker & deployment configs (may contain placeholders)
+  '''docker-compose.*\.yml''',
+  '''deployment/app-config''',
+  
+  # Documentation & examples
+  '''README\.md''',
+  '''CONTRIBUTING\.md''',
+  '''docs/''',
+  '''\.github/''',
+  
+  # License & config files
+  '''LICENSE''',
+  '''\.gitignore''',
+  '''\.env\.example''',
+  '''\.env\.template''',
+]
+
+commits = []
+repos = []
+
+# =====================================
+# CUSTOM RULES FOR YAS
+# =====================================
+
+# Rule 1: Detect hardcoded database connection strings
+[[rules]]
+id = "yas-hardcoded-db-connection"
+description = "Detects hardcoded database connection strings"
+entropy = 3.5
+regex = '''(?i)(jdbc:|postgresql://|mysql://)[a-zA-Z0-9:@/\-._]*?:([a-zA-Z0-9!@#$%^&*()_+\-=\[\]{};':"\\|,.<>?/`~]{8,})'''
+keywords = ["jdbc:", "postgresql://", "mysql://", "mongodb://"]
+severity = "MEDIUM"
+
+# Rule 2: Detect Keycloak admin credentials in code
+[[rules]]
+id = "yas-keycloak-credentials"
+description = "Detects Keycloak admin credentials"
+entropy = 3.0
+regex = '''(?i)(KC_BOOTSTRAP_ADMIN_PASSWORD|keycloak.admin.password)\s*[:=]\s*['"]([^'"]{6,})['"]'''
+keywords = ["KC_BOOTSTRAP_ADMIN_PASSWORD", "keycloak.admin.password"]
+severity = "HIGH"
+
+# Rule 3: Detect Docker registry credentials
+[[rules]]
+id = "yas-docker-credentials"
+description = "Detects Docker/registry credentials"
+entropy = 3.5
+regex = '''(?i)(docker\.password|registry.*password|DOCKER_PASSWORD)\s*[:=]\s*['"]([^'"]{8,})['"]'''
+keywords = ["DOCKER_PASSWORD", "registry.password", "docker.password"]
+severity = "HIGH"
+
+# Rule 4: Detect SonarCloud/SonarQube tokens
+[[rules]]
+id = "yas-sonar-token"
+description = "Detects SonarCloud/SonarQube authentication tokens"
+entropy = 4.0
+regex = '''(?i)(sonar\.login|SONAR_TOKEN|sonarqube.*token)\s*[:=]\s*([a-f0-9]{40,})'''
+keywords = ["SONAR_TOKEN", "sonar.login"]
+severity = "MEDIUM"
+
+# Rule 5: Detect AWS credentials
+[[rules]]
+id = "yas-aws-credentials"
+description = "Detects AWS access keys and secret keys"
+entropy = 3.5
+regex = '''(?i)(aws_access_key_id|aws_secret_access_key|AWS_SECRET_ACCESS_KEY)\s*[:=]\s*([A-Za-z0-9/+=]{20,})'''
+keywords = ["AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY"]
+severity = "CRITICAL"
+
+# Rule 6: Detect PayPal API credentials (project uses PayPal payment)
+[[rules]]
+id = "yas-paypal-credentials"
+description = "Detects PayPal Client ID and Secret"
+entropy = 3.5
+regex = '''(?i)(paypal.*client_id|paypal.*secret|PAYPAL_CLIENT_ID|PAYPAL_SECRET)\s*[:=]\s*(['"]?[a-zA-Z0-9_\-]{20,}['"]?)'''
+keywords = ["PAYPAL_CLIENT_ID", "PAYPAL_SECRET", "paypal.client"]
+severity = "HIGH"
+
+# Rule 7: Detect JWT tokens and secrets
+[[rules]]
+id = "yas-jwt-token"
+description = "Detects JWT tokens and signing secrets"
+entropy = 3.8
+regex = '''(?i)(jwt.*secret|jwt.*key|JWT_SECRET|JWT_SIGNING_KEY)\s*[:=]\s*(['"]?[a-zA-Z0-9_\-\.]{32,}['"]?)'''
+keywords = ["JWT_SECRET", "jwt.secret", "JWT_SIGNING_KEY"]
+severity = "HIGH"
+
+# Rule 8: Detect Elasticsearch credentials
+[[rules]]
+id = "yas-elasticsearch-credentials"
+description = "Detects Elasticsearch password and tokens"
+entropy = 3.5
+regex = '''(?i)(elasticsearch.*password|elastic.*password|ES_PASSWORD)\s*[:=]\s*(['"][^'"]{8,}['"])'''
+keywords = ["elasticsearch.password", "ES_PASSWORD"]
+severity = "MEDIUM"
+
+# Rule 9: Detect GitHub tokens
+[[rules]]
+id = "yas-github-token"
+description = "Detects GitHub personal access tokens"
+entropy = 4.0
+regex = '''(?i)(github.*token|GITHUB_TOKEN|ghp_[a-zA-Z0-9_]{36})'''
+keywords = ["GITHUB_TOKEN", "ghp_"]
+severity = "CRITICAL"
+
+# Rule 10: Detect private keys
+[[rules]]
+id = "yas-private-key"
+description = "Detects private key files (RSA, SSH, PEM)"
+entropy = 4.5
+regex = '''-----BEGIN\s+(RSA\s+)?PRIVATE\s+KEY-----'''
+keywords = ["BEGIN PRIVATE KEY", "BEGIN RSA PRIVATE KEY"]
+severity = "CRITICAL"
+
+# =====================================
+# ALLOWLIST FOR SPECIFIC RULES
+# =====================================
+
+[[rules.allowlist]]
+description = "Allow SonarCloud config in pom.xml"
+paths = [
+  '''pom\.xml''',
+  '''.*/pom\.xml''',
+]
+
+[[rules.allowlist]]
+description = "Allow keycloak realm export json"
+paths = [
+  '''realm-export\.json''',
+  '''identity/.*\.json''',
+]
+
+[[rules.allowlist]]
+description = "Allow docker-compose examples"
+paths = [
+  '''docker-compose.*\.yml''',
 ]
