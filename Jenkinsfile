@@ -92,25 +92,32 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-                    echo "Running Gitleaks for secrets detection..."
+                    echo "Running pre-installed Gitleaks for secrets detection..."
                     sh '''
-                        if ! command -v gitleaks &> /dev/null; then
-                            echo "Installing Gitleaks..."
-                            wget https://github.com/gitleaks/gitleaks/releases/download/v8.15.0/gitleaks-linux-x64 -O gitleaks 2>/dev/null
-                            chmod +x gitleaks
-                            export PATH=$PWD:$PATH
-                        fi
+                        # Chạy gitleaks detect. 
+                        # Dùng || true để script không dừng ngay lập tức khi tìm thấy secret, 
+                        # giúp chúng ta có thể xử lý logic báo cáo bên dưới.
+                        gitleaks detect --source . \
+                        --config gitleaks.toml \
+                        --report-format json \
+                        --report-path gitleaks-report.json \
+                        --verbose || true
                         
-                        echo "Scanning for secrets..."
-                        gitleaks detect --config gitleaks.toml --report-format json --report-path gitleaks-report.json --verbose || true
-                        
-                        CRITICAL=$(grep -c '"severity":"CRITICAL"' gitleaks-report.json || echo 0)
-                        if [ "$CRITICAL" -gt 0 ]; then
-                            echo "ERROR: Found CRITICAL secrets in code!"
-                            cat gitleaks-report.json
-                            exit 1
+                        # Kiểm tra nếu file báo cáo tồn tại
+                        if [ -f "gitleaks-report.json" ]; then
+                            # -i giúp tìm không phân biệt hoa thường (bắt được cả critical và CRITICAL)
+                            CRITICAL=$(grep -ic '"severity":"critical"' gitleaks-report.json || echo 0)
+                            
+                            if [ "$CRITICAL" -gt 0 ]; then
+                                echo "-------------------------------------------------------"
+                                echo "ERROR: Found $CRITICAL CRITICAL secrets in your code!"
+                                echo "Please check gitleaks-report.json in Build Artifacts."
+                                echo "-------------------------------------------------------"
+                                # cat gitleaks-report.json # Chỉ nên cat nếu file nhỏ, nếu lớn sẽ làm rối log
+                                exit 1
+                            fi
                         fi
-                        echo "Gitleaks scan passed - no critical secrets found"
+                        echo "Gitleaks scan passed - no critical secrets found."
                     '''
                 }
             }
