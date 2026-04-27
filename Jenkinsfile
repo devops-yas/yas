@@ -133,19 +133,13 @@ pipeline {
         
         stage('Build - Maven Clean Install') {
             steps {
-                echo "Building dependencies and ${env.TARGET_SERVICE}..."
+                echo "Building project from root to resolve variables..."
                 sh '''
-                    if [ -d "common-library" ]; then
-                        echo "Installing common-library..."
-                        cd common-library
-                        mvn clean install -DskipTests -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
-                        cd ..
-                    fi
-
-                    if [ "${TARGET_SERVICE}" != "common-library" ] && [ "${TARGET_SERVICE}" != "root" ]; then
-                        echo "Building target service: ${TARGET_SERVICE}..."
-                        cd ${SERVICE_PATH}
-                        mvn clean install -DskipTests \
+                    if [ "$TARGET_SERVICE" = "root" ]; then
+                        mvn clean install -DskipTests -Dmaven.javadoc.skip=true
+                    else
+                        # Dùng $TARGET_SERVICE (cú pháp shell) để an toàn nhất
+                        mvn clean install -pl common-library,$TARGET_SERVICE -am -DskipTests \
                             -Dmaven.javadoc.skip=true \
                             -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
                     fi
@@ -158,21 +152,30 @@ pipeline {
                 expression { !params.SKIP_TESTS }
             }
             steps {
-                echo "Running unit and integration tests..."
+                echo "Running unit and integration tests for ${env.TARGET_SERVICE}..."
                 sh '''
-                    cd ${SERVICE_PATH}
+                    # Chạy từ root để đảm bảo biến ${revision} và parent pom được load đúng
                     
-                    echo "Step 1: Running Unit Tests (Surefire)..."
-                    mvn test -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
-                    
-                    echo "Step 2: Running Integration Tests (Failsafe)..."
-                    mvn verify -DskipUnitTests -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN || true
+                    if [ "$TARGET_SERVICE" = "root" ]; then
+                        echo "Running all tests in the project..."
+                        mvn verify -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                    else
+                        echo "Step 1: Running Unit Tests for $TARGET_SERVICE..."
+                        mvn test -pl $TARGET_SERVICE -am -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                        
+                        echo "Step 2: Running Integration Tests for $TARGET_SERVICE..."
+                        # Xóa || true để đảm bảo nếu IT fails thì pipeline sẽ dừng, tránh push image lỗi
+                        mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests \
+                            -Dmaven.javadoc.skip=true \
+                            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                    fi
                 '''
             }
             post {
                 always {
                     echo "Collecting test results..."
-                    junit testResults: '${SERVICE_PATH}/**/target/surefire-reports/*.xml,${SERVICE_PATH}/**/target/failsafe-reports/*.xml', 
+                    // Vẫn giữ đường dẫn quét này vì Maven sẽ sinh report trong các folder target của module
+                    junit testResults: '**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml', 
                           allowEmptyResults: true
                 }
             }
