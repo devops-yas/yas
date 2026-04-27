@@ -182,36 +182,28 @@ pipeline {
         }
         
         stage('Code Coverage Validation (JaCoCo 70% Threshold)') {
-            when {
-                expression { !params.SKIP_TESTS }
-            }
+            when { expression { !params.SKIP_TESTS } }
             steps {
-                echo "Validating code coverage with JaCoCo (minimum 70%)..."
+                echo "Validating code coverage for $TARGET_SERVICE..."
                 sh '''
-                    cd ${SERVICE_PATH}
+                    # Tìm file report trong thư mục của service
+                    REPORT_PATH=$(find . -name "index.csv" | grep "$TARGET_SERVICE" | grep "jacoco" | head -1)
                     
-                    # Ensure coverage is generated
-                    if [ ! -f "target/jacoco-report/index.csv" ]; then
+                    if [ -z "$REPORT_PATH" ]; then
                         echo "Generating JaCoCo report..."
-                        mvn jacoco:report -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN || true
+                        mvn jacoco:report -pl $TARGET_SERVICE -am -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                        REPORT_PATH=$(find . -name "index.csv" | grep "$TARGET_SERVICE" | grep "jacoco" | head -1)
                     fi
                     
-                    if [ -f "target/jacoco-report/index.csv" ]; then
-                        # Extract coverage: last line, 5th column is coverage %
-                        COVERAGE=$(tail -1 target/jacoco-report/index.csv | cut -d',' -f5 | tr -d '%')
-                        
+                    if [ -f "$REPORT_PATH" ]; then
+                        COVERAGE=$(tail -1 "$REPORT_PATH" | cut -d',' -f5 | tr -d '%')
                         echo "Code Coverage Result: ${COVERAGE}%"
-                        
-                        if [ -z "$COVERAGE" ]; then
-                            echo "WARNING: Could not parse coverage percentage"
-                        elif [ "$COVERAGE" -ge 70 ]; then
-                            echo "SUCCESS: Code coverage ${COVERAGE}% meets minimum threshold (70%)"
-                        else
-                            echo "ERROR: Code coverage ${COVERAGE}% is below minimum requirement of 70%"
+                        if [ "$COVERAGE" -lt 70 ]; then
+                            echo "ERROR: Code coverage ${COVERAGE}% is below 70%"
                             exit 1
                         fi
                     else
-                        echo "WARNING: JaCoCo report not found, skipping coverage validation"
+                        echo "WARNING: JaCoCo report not found at $REPORT_PATH"
                     fi
                 '''
             }
@@ -222,28 +214,14 @@ pipeline {
                 expression { !params.SKIP_SONAR && env.TARGET_SERVICE != 'root' && !params.SKIP_TESTS }
             }
             steps {
-                echo "Running SonarCloud security and code quality scan..."
+                echo "Running SonarCloud scan for $TARGET_SERVICE..."
                 sh '''
-                    cd ${SERVICE_PATH}
-                    
-                    # Extract SonarQube project key from pom.xml
-                    SONAR_KEY=$(grep -A2 '<sonar.projectKey>' pom.xml | grep -oP '(?<=<sonar.projectKey>)[^<]+' || echo '')
-                    
-                    if [ -z "$SONAR_KEY" ]; then
-                        echo "WARNING: SonarQube project key not found in pom.xml - skipping SonarCloud"
-                        exit 0
-                    fi
-                    
-                    echo "Publishing to SonarCloud with project key: $SONAR_KEY"
-                    
-                    mvn sonar:sonar \
-                        -Dsonar.projectKey="$SONAR_KEY" \
+                    # Chạy Sonar từ root để nhận diện biến ${revision}
+                    mvn sonar:sonar -pl $TARGET_SERVICE -am \
                         -Dsonar.organization=${SONAR_ORGANIZATION} \
                         -Dsonar.host.url=https://sonarcloud.io \
                         -Dsonar.login=${SONAR_TOKEN} \
                         -Dmaven.javadoc.skip=true
-                    
-                    echo "SonarCloud analysis completed"
                 '''
             }
         }

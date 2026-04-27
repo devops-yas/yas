@@ -14,14 +14,17 @@ public class IntegrationTestConfiguration {
     @ServiceConnection
     public PostgreSQLContainer<?> postgresContainer() {
         return new PostgreSQLContainer<>("postgres:16")
-            .withReuse(true);
+            .withReuse(false)
+            .withDatabaseName("test")
+            .withUsername("test")
+            .withPassword("test");
     }
 
     @Bean(destroyMethod = "stop")
     public KeycloakContainer keycloakContainer() {
         return new KeycloakContainer()
             .withRealmImportFiles("/test-realm.json")
-            .withReuse(true);
+            .withReuse(false);
     }
 
     @Bean
