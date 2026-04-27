@@ -5,7 +5,7 @@ pipeline {
     agent {
         docker {
             image 'maven:3.9-eclipse-temurin-21'
-            args '-v /var/run/docker.sock:/var/run/docker.sock --privileged --user root'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --privileged --user root'
         }
     }
     options {
@@ -133,12 +133,22 @@ pipeline {
         
         stage('Build - Maven Clean Install') {
             steps {
-                echo "Building ${env.TARGET_SERVICE}..."
+                echo "Building dependencies and ${env.TARGET_SERVICE}..."
                 sh '''
-                    cd ${SERVICE_PATH}
-                    mvn clean install -DskipTests \
-                        -Dmaven.javadoc.skip=true \
-                        -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                    if [ -d "common-library" ]; then
+                        echo "Installing common-library..."
+                        cd common-library
+                        mvn clean install -DskipTests -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                        cd ..
+                    fi
+
+                    if [ "${TARGET_SERVICE}" != "common-library" ] && [ "${TARGET_SERVICE}" != "root" ]; then
+                        echo "Building target service: ${TARGET_SERVICE}..."
+                        cd ${SERVICE_PATH}
+                        mvn clean install -DskipTests \
+                            -Dmaven.javadoc.skip=true \
+                            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                    fi
                 '''
             }
         }
