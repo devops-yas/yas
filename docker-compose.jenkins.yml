@@ -34,13 +34,13 @@ services:
     # Environment variables
     environment:
       - JENKINS_OPTS=--httpPort=8080
-      - JAVA_OPTS=-Xmx4g -Xms1g
+      - JAVA_OPTS=-Xmx2g -Xms1g
       - CASC_JENKINS_CONFIG=/var/jenkins_home/config-as-code.yaml
     
     deploy:
       resources:
         limits:
-          memory: 4G
+          memory: 8G
 
     # Logging configuration
     logging: *logging

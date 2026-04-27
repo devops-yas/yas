@@ -15,7 +15,8 @@ pipeline {
     }
     
     environment {
-        MAVEN_OPTS = '-Xmx2g -Xms512m'
+        MAVEN_OPTS = '-Xmx3g -Xms1024m'
+        TESTCONTAINERS_CONTAINER_STARTUP_TIMEOUT = '300'
         TESTCONTAINERS_RYUK_DISABLED = 'true'
         SONAR_TOKEN = credentials('sonarcloud-token')
         SONAR_ORGANIZATION = 'nashtech-garage'
