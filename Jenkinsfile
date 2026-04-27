@@ -1,7 +1,11 @@
 #!/usr/bin/env groovy
 
 pipeline {
-    agent any
+//    agent any
+    docker {
+        image 'maven:3.9-eclipse-temurin-21'
+        args '-v /var/run/docker.sock:/var/run/docker.sock --privileged --user root'
+    }
     options {
         timestamps()
         timeout(time: 1, unit: 'HOURS')
@@ -10,6 +14,7 @@ pipeline {
     
     environment {
         MAVEN_OPTS = '-Xmx2g -Xms512m'
+        TESTCONTAINERS_RYUK_DISABLED = 'true'
         SONAR_TOKEN = credentials('sonarcloud-token')
         SONAR_ORGANIZATION = 'nashtech-garage'
         DOCKER_REGISTRY_CREDS = credentials('docker-hub-credentials')
