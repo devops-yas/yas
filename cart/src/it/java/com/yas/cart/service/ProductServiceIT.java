@@ -19,14 +19,13 @@ import org.testcontainers.junit.jupiter.Container;
 import org.testcontainers.junit.jupiter.Testcontainers;
 
 @SpringBootTest
-@Testcontainers
-@ComponentScan(basePackages = {"com.yas.commonlibrary"})
+@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@ActiveProfiles("test")
+@Import(IntegrationTestConfiguration.class)
 class ProductServiceIT {
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgresContainer = new PostgreSQLContainer<>("postgres:16");
     @MockitoSpyBean
     private ProductService productService;
+
     @Autowired
     private CircuitBreakerRegistry circuitBreakerRegistry;
 
@@ -34,6 +33,7 @@ class ProductServiceIT {
     void test_getProducts_shouldThrowCallNotPermittedException_whenCircuitBreakerIsOpen() throws Throwable {
         List<Long> productIds = List.of(1L);
         circuitBreakerRegistry.circuitBreaker("restCircuitBreaker").transitionToOpenState();
+        
         assertThrows(CallNotPermittedException.class, () -> productService.getProducts(productIds));
         verify(productService, atLeastOnce()).handleProductThumbnailFallback(any());
     }

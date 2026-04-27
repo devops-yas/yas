@@ -28,6 +28,15 @@ public class IntegrationTestConfiguration {
     }
 
     @Bean
+    public DynamicPropertyRegistrar databaseProperties() {
+        return registry -> {
+            // Ép cấu hình Dialect trực tiếp bằng code
+            registry.add("spring.jpa.database-platform", () -> "org.hibernate.dialect.PostgreSQLDialect");
+            registry.add("spring.jpa.hibernate.ddl-auto", () -> "update");
+        };
+    }
+
+    @Bean
     public DynamicPropertyRegistrar keycloakDynamicProperties(KeycloakContainer keycloakContainer) {
         return registry -> {
             registry.add(

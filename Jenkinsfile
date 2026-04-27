@@ -313,13 +313,19 @@ pipeline {
     post {
         always {
             script {
-                echo "Archiving artifacts and generating pipeline report..."
-                
-                // Archive test and coverage reports
-                archiveArtifacts artifacts: '${SERVICE_PATH}/target/jacoco-report/**,${SERVICE_PATH}/target/surefire-reports/**,gitleaks-report.json', 
+                echo "Archiving artifacts..."
+                // Dùng wildcard ** để quét tất cả các module đã build
+                archiveArtifacts artifacts: '**/target/jacoco-report/**,**/target/surefire-reports/**,**/target/failsafe-reports/**,gitleaks-report.json', 
                                  allowEmptyArchive: true
                 
-                echo "Pipeline execution completed"
+                publishHTML([
+                    allowMissing: true,
+                    alwaysLinkToLastBuild: true,
+                    keepAll: true,
+                    reportDir: "${env.TARGET_SERVICE}/target/site/jacoco", // Đường dẫn chuẩn của JaCoCo
+                    reportFiles: 'index.html',
+                    reportName: 'JaCoCo Code Coverage Report'
+                ])
             }
         }
         
