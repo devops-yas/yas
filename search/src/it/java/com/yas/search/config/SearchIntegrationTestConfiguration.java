@@ -48,7 +48,14 @@ public class SearchIntegrationTestConfiguration {
     public KeycloakContainer keycloakContainer() {
         return new KeycloakContainer()
             .withRealmImportFiles("/test-realm.json")
-            .withReuse(true);
+            .withCommand("start-dev --health-enabled=true")
+            .withReuse(false)
+            .waitingFor(
+                Wait.forHttp("/realms/quarkus/.well-known/openid-configuration")
+                    .forStatusCode(200)
+                    .withStartupTimeout(Duration.ofMinutes(5))
+            )
+            .withLogConsumer(new Slf4jLogConsumer(LoggerFactory.getLogger("keycloak")));
     }
 
     @Bean
