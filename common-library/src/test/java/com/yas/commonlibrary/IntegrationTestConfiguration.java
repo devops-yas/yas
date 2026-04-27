@@ -22,13 +22,12 @@ public class IntegrationTestConfiguration {
 
     @Bean(destroyMethod = "stop")
     public KeycloakContainer keycloakContainer() {
-        // Nên chỉ định rõ image version tương thích với code của bạn (ví dụ 26.0)
-        return new KeycloakContainer("quay.io/keycloak/keycloak:26.0") 
+        return new KeycloakContainer("quay.io/keycloak/keycloak:26.0")
             .withRealmImportFiles("/test-realm.json")
             .withReuse(false)
-            // Thêm lệnh này để bỏ qua các cấu hình Production phức tạp khi test
-            .withExtraArgs("start-dev") 
-            // Tăng thời gian chờ khởi động vì Keycloak startup khá nặng
+            // Sửa từ withExtraArgs thành withFlags
+            .withFlags("start-dev") 
+            // Sử dụng java.time.Duration cho startup timeout
             .withStartupTimeout(java.time.Duration.ofMinutes(3));
     }
 
