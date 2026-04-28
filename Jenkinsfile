@@ -162,50 +162,79 @@ pipeline {
             steps {
                 echo "Running tests for ${env.TARGET_SERVICE}..."
                 script {
-                    // Chuyển flag vào biến Groovy để dễ quản lý và nội suy
-                    def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
+                    echo "--- Running Unit Tests for ${env.TARGET_SERVICE} ---"
+                    script {
+                        def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
+                        // Chỉ chạy 'mvn test', không chạy 'verify' để bỏ qua IT
+                        sh "mvn test -pl ${env.TARGET_SERVICE} -am ${commonFlags} -Dit.enabled=false -DskipITs"
+                    }
+
+                    // // Chuyển flag vào biến Groovy để dễ quản lý và nội suy
+                    // def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
                     
-                    sh """
-                        if [ "$TARGET_SERVICE" = "root" ]; then
-                            echo "Running unit tests only for root..."
-                            # -DskipITs: Ngăn chặn hoàn toàn plugin Failsafe quét các class *IT.java
-                            mvn test ${commonFlags} -Dit.enabled=false -DskipITs
-                        else
-                            echo "--- Step 1: Running Unit Tests for $TARGET_SERVICE ---"
-                            # Ép buộc bỏ qua IT ở cả tầng Maven Plugin và tầng Spring Context
-                            mvn test -pl $TARGET_SERVICE -am ${commonFlags} -Dit.enabled=false -DskipITs
+                    // sh """
+                    //     if [ "$TARGET_SERVICE" = "root" ]; then
+                    //         echo "Running unit tests only for root..."
+                    //         # -DskipITs: Ngăn chặn hoàn toàn plugin Failsafe quét các class *IT.java
+                    //         mvn test ${commonFlags} -Dit.enabled=false -DskipITs
+                    //     else
+                    //         echo "--- Step 1: Running Unit Tests for $TARGET_SERVICE ---"
+                    //         # Ép buộc bỏ qua IT ở cả tầng Maven Plugin và tầng Spring Context
+                    //         mvn test -pl $TARGET_SERVICE -am ${commonFlags} -Dit.enabled=false -DskipITs
                             
-                            if [ "${params.SKIP_IT}" != "true" ]; then
-                                echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
-                                # Chỉ khi chạy IT mới bật it.enabled=true và cho phép chạy verify
-                                mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests -Dit.enabled=true ${commonFlags}
-                            else
-                                echo ">>> SKIP_IT is true: Integration Tests and Docker containers are disabled."
-                            fi
-                        fi
-                    """
+                    //         if [ "${params.SKIP_IT}" != "true" ]; then
+                    //             echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
+                    //             # Chỉ khi chạy IT mới bật it.enabled=true và cho phép chạy verify
+                    //             mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests -Dit.enabled=true ${commonFlags}
+                    //         else
+                    //             echo ">>> SKIP_IT is true: Integration Tests and Docker containers are disabled."
+                    //         fi
+                    //     fi
+                    // """
                 }
             }
             post {
+                // always {
+                //     echo "Collecting test results..."
+                //     script {
+                //         // Quét kết quả test dựa trên service path để chính xác hơn
+                //         def reportPattern = "${env.SERVICE_PATH}/**/target/surefire-reports/*.xml,${env.SERVICE_PATH}/**/target/failsafe-reports/*.xml"
+                //         junit testResults: reportPattern, allowEmptyResults: true
+                //     }
+                // }
+
                 always {
-                    echo "Collecting test results..."
-                    script {
-                        // Quét kết quả test dựa trên service path để chính xác hơn
-                        def reportPattern = "${env.SERVICE_PATH}/**/target/surefire-reports/*.xml,${env.SERVICE_PATH}/**/target/failsafe-reports/*.xml"
-                        junit testResults: reportPattern, allowEmptyResults: true
-                    }
+                    echo "Collecting unit test results..."
+                    junit testResults: "${env.SERVICE_PATH}/**/target/surefire-reports/*.xml", allowEmptyResults: true
                 }
             }
         }
         
         stage('Code Coverage Validation (JaCoCo 70% Threshold)') {
-            when { expression { !params.SKIP_TESTS } }
+            when { 
+                expression { !params.SKIP_TESTS && env.TARGET_SERVICE != 'root' } 
+            }
             steps {
-                echo "Kiểm tra độ phủ code cho ${env.TARGET_SERVICE}..."
-                // Lệnh này sẽ quét file jacoco.exec vừa tạo ra ở stage Test
-                // Nếu độ phủ < 0.7 (70%), Maven sẽ trả về lỗi và Jenkins sẽ dừng stage này ngay lập tức.
-                // sh "mvn jacoco:check -pl ${env.TARGET_SERVICE} -am -Djacoco.haltOnFailure=true -Djacoco.line.minimum=0.70"
-                sh "mvn verify -pl ${env.TARGET_SERVICE} -am -DskipTests"
+                script {
+                    def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
+                    
+                    if (params.SKIP_IT == false) {
+                        echo "--- Running Integration Tests & Checking 70% Threshold for ${env.TARGET_SERVICE} ---"
+                        // mvn verify sẽ: chạy IT -> gộp kết quả với UT -> chạy jacoco:check (đã cấu hình trong POM)
+                        // -DskipUnitTests=true để không chạy lại các bài Unit Test đã chạy ở stage trước
+                        sh "mvn verify -pl ${env.TARGET_SERVICE} -am -DskipUnitTests=true -Dit.enabled=true ${commonFlags}"
+                    } else {
+                        echo "--- Skipping IT, only validating coverage from Unit Tests ---"
+                        // Nếu người dùng chọn skip IT, ta vẫn phải check xem UT có đủ 70% không
+                        sh "mvn jacoco:check -pl ${env.TARGET_SERVICE} -am -Djacoco.line.minimum=0.70"
+                    }
+                }
+            }
+            post {
+                always {
+                    echo "Collecting integration test results..."
+                    junit testResults: "${env.SERVICE_PATH}/**/target/failsafe-reports/*.xml", allowEmptyResults: true
+                }
             }
         }
         
