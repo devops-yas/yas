@@ -17,6 +17,11 @@ on:
       - "pom.xml"
   workflow_dispatch:
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 jobs:
   Build:
     runs-on: ubuntu-latest
@@ -34,6 +39,7 @@ jobs:
         run: mvn checkstyle:checkstyle -pl storefront-bff -am -Dcheckstyle.output.file=storefront-bff-checkstyle-result.xml
       - name: Upload Checkstyle Result
         if: ${{ env.FROM_ORIGINAL_REPOSITORY == 'true' }}
+        continue-on-error: true
         uses: jwgmeligmeyling/checkstyle-github-action@master
         with:
           path: '**/storefront-bff-checkstyle-result.xml'
