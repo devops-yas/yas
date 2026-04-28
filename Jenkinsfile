@@ -158,7 +158,7 @@ pipeline {
             }
             steps {
                 echo "Running tests for ${env.TARGET_SERVICE}..."
-                sh """
+                sh '''
                     # Định nghĩa các flag chung để rút gọn lệnh
                     MAVEN_COMMON_FLAGS="-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
 
@@ -185,13 +185,15 @@ pipeline {
                             echo "Skipping Integration Tests for $TARGET_SERVICE."
                         fi
                     fi
-                """
+                '''
             }
             post {
                 always {
                     echo "Collecting test results..."
-                    junit testResults: '**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml', 
-                        allowEmptyResults: true
+                    script {
+                        def reportPattern = "**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml"
+                        junit testResults: reportPattern, allowEmptyResults: true
+                    }
                 }
             }
         }
