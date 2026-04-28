@@ -158,32 +158,37 @@ pipeline {
             }
             steps {
                 echo "Running tests for ${env.TARGET_SERVICE}..."
-                sh '''
-                    # Định nghĩa các flag chung để rút gọn lệnh
-                    MAVEN_COMMON_FLAGS="-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
-
-                    if [ "$TARGET_SERVICE" = "root" ]; then
-                        echo "Running unit tests only for root..."
-                        mvn test $MAVEN_COMMON_FLAGS -Dit.enabled=false
-                    else
-                        echo "--- Step 1: Running Unit Tests for $TARGET_SERVICE ---"
-                        # Luôn đảm bảo it.enabled=false khi chạy unit test
-                        mvn test -pl $TARGET_SERVICE -am $MAVEN_COMMON_FLAGS -Dit.enabled=false
-                        
-                        if [ "${SKIP_IT}" != "true" ]; then
-                            echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
-                            mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests -Dit.enabled=true $MAVEN_COMMON_FLAGS
+                script {
+                    // Chuyển flag vào biến Groovy để dễ quản lý và nội suy
+                    def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
+                    
+                    sh """
+                        if [ "$TARGET_SERVICE" = "root" ]; then
+                            echo "Running unit tests only for root..."
+                            # -DskipITs: Ngăn chặn hoàn toàn plugin Failsafe quét các class *IT.java
+                            mvn test ${commonFlags} -Dit.enabled=false -DskipITs
                         else
-                            echo "Skipping Integration Tests (SKIP_IT=true). Docker will not start."
+                            echo "--- Step 1: Running Unit Tests for $TARGET_SERVICE ---"
+                            # Ép buộc bỏ qua IT ở cả tầng Maven Plugin và tầng Spring Context
+                            mvn test -pl $TARGET_SERVICE -am ${commonFlags} -Dit.enabled=false -DskipITs
+                            
+                            if [ "${params.SKIP_IT}" != "true" ]; then
+                                echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
+                                # Chỉ khi chạy IT mới bật it.enabled=true và cho phép chạy verify
+                                mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests -Dit.enabled=true ${commonFlags}
+                            else
+                                echo ">>> SKIP_IT is true: Integration Tests and Docker containers are disabled."
+                            fi
                         fi
-                    fi
-                '''
+                    """
+                }
             }
             post {
                 always {
                     echo "Collecting test results..."
                     script {
-                        def reportPattern = "**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml"
+                        // Quét kết quả test dựa trên service path để chính xác hơn
+                        def reportPattern = "${env.SERVICE_PATH}/**/target/surefire-reports/*.xml,${env.SERVICE_PATH}/**/target/failsafe-reports/*.xml"
                         junit testResults: reportPattern, allowEmptyResults: true
                     }
                 }
