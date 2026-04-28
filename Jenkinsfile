@@ -240,20 +240,20 @@ pipeline {
         
         stage('SonarCloud Analysis - Security & Quality') {
             when {
-                expression { !params.SKIP_SONAR && env.TARGET_SERVICE != 'root' && !params.SKIP_TESTS }
+                expression { !params.SKIP_SONAR && env.TARGET_SERVICES_LIST != 'root' && !params.SKIP_TESTS }
             }
             steps {
-                echo "Running SonarCloud scan for $TARGET_SERVICE..."
-                sh '''
-                    mvn sonar:sonar -pl $TARGET_SERVICE -am \
+                echo "Running SonarCloud scan for ${env.TARGET_SERVICES_LIST}..."
+                sh """
+                    mvn sonar:sonar -pl ${env.TARGET_SERVICES_LIST} -am \
                         -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                         -Dsonar.organization=${SONAR_ORGANIZATION} \
                         -Dsonar.host.url=https://sonarcloud.io \
-                        -Dsonar.login=${SONAR_TOKEN} \
+                        -Dsonar.token=${SONAR_TOKEN} \
                         -Dsonar.maven.scanAll=false \
                         -Dsonar.qualitygate.wait=true \
                         -Dmaven.javadoc.skip=true
-                '''
+                """
             }
         }
         
@@ -288,26 +288,43 @@ pipeline {
             when {
                 expression { 
                     env.GIT_BRANCH_NAME in ['main', 'master', 'develop'] &&
-                    fileExists("${env.SERVICE_PATH}/Dockerfile") &&
-                    env.TARGET_SERVICE != 'common-library' &&
-                    !env.TARGET_SERVICE.contains('automation')
+                    env.TARGET_SERVICES_LIST != 'common-library' &&
+                    !env.TARGET_SERVICES_LIST.contains('root')
                 }
             }
             steps {
-                echo "Building Docker image for ${env.TARGET_SERVICE}..."
-                sh '''
-                    cd ${SERVICE_PATH}
-                    IMAGE_NAME=$(echo ${TARGET_SERVICE} | tr '-' '_')
+                script {
+                    // Tách danh sách services thành mảng để xử lý từng cái
+                    def services = env.TARGET_SERVICES_LIST.split(',')
                     
-                    docker build \
-                        --tag ${REGISTRY_URL}/nashtech-garage/${IMAGE_NAME}:${BUILD_VERSION} \
-                        --tag ${REGISTRY_URL}/nashtech-garage/${IMAGE_NAME}:latest \
-                        --build-arg BUILD_DATE=$(date -u +'%Y-%m-%dT%H:%M:%SZ') \
-                        --build-arg VCS_REF=${GIT_COMMIT_SHORT} \
-                        --build-arg VERSION=${BUILD_VERSION} .
-                    
-                    echo "Docker image built successfully: ${REGISTRY_URL}/nashtech-garage/${IMAGE_NAME}:${BUILD_VERSION}"
-                '''
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
+                                                    passwordVariable: 'REGISTRY_PASSWORD', 
+                                                    usernameVariable: 'REGISTRY_USERNAME')]) {
+                        
+                        // Login một lần duy nhất trước khi vòng lặp bắt đầu
+                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
+
+                        for (service in services) {
+                            // Chỉ build nếu service có Dockerfile
+                            if (fileExists("${service}/Dockerfile")) {
+                                echo "--- Building & Pushing Docker image for: ${service} ---"
+                                
+                                def imageName = service.replace('-', '_')
+                                def imageTag = "${env.REGISTRY_URL}/nashtech-garage/${imageName}"
+                                
+                                sh """
+                                    docker build -t ${imageTag}:${env.BUILD_VERSION} -t ${imageTag}:latest ${service}
+                                    docker push ${imageTag}:${env.BUILD_VERSION}
+                                    docker push ${imageTag}:latest
+                                """
+                            } else {
+                                echo ">>> Skipping ${service}: No Dockerfile found."
+                            }
+                        }
+                        
+                        sh "docker logout ${env.REGISTRY_URL}"
+                    }
+                }
             }
         }
         
@@ -344,20 +361,26 @@ pipeline {
     post {
         always {
             script {
-                echo "Archiving artifacts..."
-                // Dùng wildcard ** để quét tất cả các module đã build
-                archiveArtifacts artifacts: "${env.SERVICE_PATH}/target/*.json, ${env.SERVICE_PATH}/target/surefire-reports/*.xml, ${env.SERVICE_PATH}/target/failsafe-reports/*.xml", 
-                                 allowEmptyArchive: true
+                echo "Archiving artifacts for all affected services..."
                 
-                if (fileExists("${env.SERVICE_PATH}/target/site/jacoco/index.html")) {
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: "${env.SERVICE_PATH}/target/site/jacoco",
-                        reportFiles: 'index.html',
-                        reportName: 'JaCoCo Code Coverage Report'
-                    ])
+                // Dùng wildcard ** để gom báo cáo từ mọi module trong project
+                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
+                                allowEmptyArchive: true
+                
+                // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
+                def services = env.TARGET_SERVICES_LIST.split(',')
+                for (service in services) {
+                    def reportPath = "${service}/target/site/jacoco/index.html"
+                    if (fileExists(reportPath)) {
+                        publishHTML([
+                            allowMissing: true,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: "${service}/target/site/jacoco",
+                            reportFiles: 'index.html',
+                            reportName: "JaCoCo Coverage - ${service}"
+                        ])
+                    }
                 }
             }
         }
