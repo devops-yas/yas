@@ -6,9 +6,9 @@ credentials:
     username: yas
     password: LarUmB3A49NTg9YmgW4=
   keycloak:
-    backofficeBffClientSecret: TVacLC0cQ8tiiEKiTVerTb2YvwQ1TRJF
-    storefrontBffClientSecret: ZrU9I0q2uXBglBnmvyJdkl1lf0ncr8tn
-    customerManagementClientSecret: NKAr3rnjwm9jlakgKpelukZGFaHYqIWE
+    backofficeBffClientSecret: "your-backoffice-bff-client-secret"
+    storefrontBffClientSecret: "your-storefront-bff-client-secret"
+    customerManagementClientSecret: "your-customer-management-bff-client-secret"
   redis:
     password: redis
   openai:
