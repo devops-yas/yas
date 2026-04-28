@@ -1,6 +1,7 @@
 package com.yas.commonlibrary;
 
 import dasniko.testcontainers.keycloak.KeycloakContainer;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.context.annotation.Bean;
@@ -11,6 +12,7 @@ import org.testcontainers.containers.wait.strategy.Wait;
 import java.time.Duration;
 
 @TestConfiguration
+@ConditionalOnProperty(name = "it.enabled", havingValue = "true", matchIfMissing = false)
 public class IntegrationTestConfiguration {
 
     @Bean(destroyMethod = "stop")

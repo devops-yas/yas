@@ -163,26 +163,18 @@ pipeline {
                     MAVEN_COMMON_FLAGS="-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
 
                     if [ "$TARGET_SERVICE" = "root" ]; then
-                        echo "Running all tests in the project..."
-                        # Chạy Unit Tests trước (test phase)
-                        mvn test $MAVEN_COMMON_FLAGS
-                        
-                        # Chạy Integration Tests sau (verify phase)
-                        if [ "${SKIP_IT}" != "true" ]; then
-                            mvn verify -DskipUnitTests $MAVEN_COMMON_FLAGS
-                        else
-                            echo "Skipping Integration Tests as requested."
-                        fi
+                        echo "Running unit tests only for root..."
+                        mvn test $MAVEN_COMMON_FLAGS -Dit.enabled=false
                     else
                         echo "--- Step 1: Running Unit Tests for $TARGET_SERVICE ---"
-                        mvn test -pl $TARGET_SERVICE -am $MAVEN_COMMON_FLAGS
+                        # Luôn đảm bảo it.enabled=false khi chạy unit test
+                        mvn test -pl $TARGET_SERVICE -am $MAVEN_COMMON_FLAGS -Dit.enabled=false
                         
-                        echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
                         if [ "${SKIP_IT}" != "true" ]; then
-                            # Sử dụng verify và skipUnitTests để chỉ chạy class *IT.java
-                            mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests $MAVEN_COMMON_FLAGS
+                            echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
+                            mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests -Dit.enabled=true $MAVEN_COMMON_FLAGS
                         else
-                            echo "Skipping Integration Tests for $TARGET_SERVICE."
+                            echo "Skipping Integration Tests (SKIP_IT=true). Docker will not start."
                         fi
                     fi
                 '''
