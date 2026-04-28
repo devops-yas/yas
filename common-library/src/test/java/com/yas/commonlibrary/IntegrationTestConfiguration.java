@@ -30,7 +30,7 @@ public class IntegrationTestConfiguration {
         return new KeycloakContainer("quay.io/keycloak/keycloak:26.0")
             .withRealmImportFiles("/test-realm.json")
             .withReuse(false) // TẮT REUSE
-            .withStartupTimeout(Duration.ofMinutes(3));
+            .withStartupTimeout(Duration.ofMinutes(5));
     }
 
     @Bean

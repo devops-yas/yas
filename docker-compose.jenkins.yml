@@ -34,7 +34,7 @@ services:
     # Environment variables
     environment:
       - JENKINS_OPTS=--httpPort=8080
-      - JAVA_OPTS=-Xmx2g -Xms1g
+      - JAVA_OPTS=-Xmx4g -Xms2g
       - CASC_JENKINS_CONFIG=/var/jenkins_home/config-as-code.yaml
     
     deploy:
