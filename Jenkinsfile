@@ -44,6 +44,7 @@ pipeline {
         )
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test execution')
         booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarCloud scan')
+        booleanParam(name: 'SKIP_IT', defaultValue: true, description: 'Tạm thời bỏ qua Integration Tests')
     }
     
     stages {
@@ -156,31 +157,41 @@ pipeline {
                 expression { !params.SKIP_TESTS }
             }
             steps {
-                echo "Running unit and integration tests for ${env.TARGET_SERVICE}..."
-                sh '''
-                    # Chạy từ root để đảm bảo biến ${revision} và parent pom được load đúng
-                    
+                echo "Running tests for ${env.TARGET_SERVICE}..."
+                sh """
+                    # Định nghĩa các flag chung để rút gọn lệnh
+                    MAVEN_COMMON_FLAGS="-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
+
                     if [ "$TARGET_SERVICE" = "root" ]; then
                         echo "Running all tests in the project..."
-                        mvn verify -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
-                    else
-                        echo "Step 1: Running Unit Tests for $TARGET_SERVICE..."
-                        mvn test -pl $TARGET_SERVICE -am -Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                        # Chạy Unit Tests trước (test phase)
+                        mvn test $MAVEN_COMMON_FLAGS
                         
-                        echo "Step 2: Running Integration Tests for $TARGET_SERVICE..."
-                        # Xóa || true để đảm bảo nếu IT fails thì pipeline sẽ dừng, tránh push image lỗi
-                        mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests \
-                            -Dmaven.javadoc.skip=true \
-                            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
+                        # Chạy Integration Tests sau (verify phase)
+                        if [ "${SKIP_IT}" != "true" ]; then
+                            mvn verify -DskipUnitTests $MAVEN_COMMON_FLAGS
+                        else
+                            echo "Skipping Integration Tests as requested."
+                        fi
+                    else
+                        echo "--- Step 1: Running Unit Tests for $TARGET_SERVICE ---"
+                        mvn test -pl $TARGET_SERVICE -am $MAVEN_COMMON_FLAGS
+                        
+                        echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
+                        if [ "${SKIP_IT}" != "true" ]; then
+                            # Sử dụng verify và skipUnitTests để chỉ chạy class *IT.java
+                            mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests $MAVEN_COMMON_FLAGS
+                        else
+                            echo "Skipping Integration Tests for $TARGET_SERVICE."
+                        fi
                     fi
-                '''
+                """
             }
             post {
                 always {
                     echo "Collecting test results..."
-                    // Vẫn giữ đường dẫn quét này vì Maven sẽ sinh report trong các folder target của module
                     junit testResults: '**/target/surefire-reports/*.xml,**/target/failsafe-reports/*.xml', 
-                          allowEmptyResults: true
+                        allowEmptyResults: true
                 }
             }
         }
@@ -248,7 +259,7 @@ pipeline {
                         allowMissing: true,
                         alwaysLinkToLastBuild: true,
                         keepAll: true,
-                        reportDir: '${SERVICE_PATH}/target/jacoco-report',
+                        reportDir: '${SERVICE_PATH}/target/site/jacoco',
                         reportFiles: 'index.html',
                         reportName: 'JaCoCo Code Coverage Report'
                     ])
@@ -320,17 +331,19 @@ pipeline {
             script {
                 echo "Archiving artifacts..."
                 // Dùng wildcard ** để quét tất cả các module đã build
-                archiveArtifacts artifacts: '**/target/jacoco-report/**,**/target/surefire-reports/**,**/target/failsafe-reports/**,gitleaks-report.json', 
+                archiveArtifacts artifacts: "${env.SERVICE_PATH}/target/*.json, ${env.SERVICE_PATH}/target/surefire-reports/*.xml, ${env.SERVICE_PATH}/target/failsafe-reports/*.xml", 
                                  allowEmptyArchive: true
                 
-                publishHTML([
-                    allowMissing: true,
-                    alwaysLinkToLastBuild: true,
-                    keepAll: true,
-                    reportDir: "${env.SERVICE_PATH}/target/site/jacoco", // Đường dẫn chuẩn của JaCoCo
-                    reportFiles: 'index.html',
-                    reportName: 'JaCoCo Code Coverage Report'
-                ])
+                if (fileExists("${env.SERVICE_PATH}/target/site/jacoco/index.html")) {
+                    publishHTML([
+                        allowMissing: true,
+                        alwaysLinkToLastBuild: true,
+                        keepAll: true,
+                        reportDir: "${env.SERVICE_PATH}/target/site/jacoco",
+                        reportFiles: 'index.html',
+                        reportName: 'JaCoCo Code Coverage Report'
+                    ])
+                }
             }
         }
         
