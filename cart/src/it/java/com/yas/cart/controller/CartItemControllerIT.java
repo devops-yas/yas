@@ -47,6 +47,7 @@ class CartItemControllerIT extends AbstractControllerIT {
             .slug("product-slug")
             .thumbnailUrl("thumbnail-url")
             .build();
+        //make some changes to test this service
     }
 
     @AfterEach
