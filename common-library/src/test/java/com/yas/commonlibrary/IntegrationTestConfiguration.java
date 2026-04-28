@@ -40,7 +40,8 @@ public class IntegrationTestConfiguration {
             .withEnv("KC_HEALTH_ENABLED", "true") // Kích hoạt endpoint health check
             .withReuse(false) // TẮT REUSE
             .waitingFor(Wait.forHttp("/health/ready").forPort(8080))
-            .withStartupTimeout(Duration.ofMinutes(5));
+            .withStartupTimeout(Duration.ofMinutes(5))
+            .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withMemory(1024L * 1024 * 1024));
     }
 
     @Bean
