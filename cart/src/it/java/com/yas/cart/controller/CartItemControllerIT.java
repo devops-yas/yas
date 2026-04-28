@@ -48,6 +48,7 @@ class CartItemControllerIT extends AbstractControllerIT {
             .thumbnailUrl("thumbnail-url")
             .build();
         //make some changes to test this service
+        //make changes 02
     }
 
     @AfterEach

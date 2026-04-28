@@ -76,18 +76,18 @@ pipeline {
                         def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
                         echo "Thư mục thay đổi: ${folders}"
 
-                        if (params.SERVICE != 'auto') {
-                            env.TARGET_SERVICE = params.SERVICE
-                        } else if (folders.contains('common-library')) {
-                            env.TARGET_SERVICE = 'common-library'
+                        // Lấy danh sách các service, nối lại bằng dấu phẩy
+                        def affectedServices = folders.findAll { it != 'common-library' && fileExists("${it}/pom.xml") }
+
+                        if (affectedServices) {
+                            env.TARGET_SERVICES_LIST = affectedServices.join(",") 
+                            // Ví dụ: "cart,product,order"
                         } else {
-                            def service = folders.find { it && fileExists("${it}/pom.xml") }
-                            env.TARGET_SERVICE = service ?: 'root'
+                            env.TARGET_SERVICES_LIST = "common-library"
                         }
-                    }
-                    
-                    env.SERVICE_PATH = env.TARGET_SERVICE == 'root' ? '.' : env.TARGET_SERVICE
-                    echo ">>> TARGET_SERVICE được chọn: ${env.TARGET_SERVICE}"
+
+                        echo "Affected services: ${env.TARGET_SERVICES_LIST}"
+                    }                       
                 }
             }
         }
@@ -155,18 +155,18 @@ pipeline {
             }
         }
         
-        stage('Test Phase - Unit & Integration Tests') {
+        stage('Test Phase - Unit Tests') {
             when {
                 expression { !params.SKIP_TESTS }
             }
             steps {
-                echo "Running tests for ${env.TARGET_SERVICE}..."
+                echo "Running tests for ${env.TARGET_SERVICES_LIST}..."
                 script {
-                    echo "--- Running Unit Tests for ${env.TARGET_SERVICE} ---"
+                    echo "--- Running Unit Tests for ${env.TARGET_SERVICES_LIST} ---"
                     script {
                         def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
                         // Chỉ chạy 'mvn test', không chạy 'verify' để bỏ qua IT
-                        sh "mvn test -pl ${env.TARGET_SERVICE} -am ${commonFlags} -Dit.enabled=false -DskipITs"
+                        sh "mvn test -pl ${env.TARGET_SERVICES_LIST} -am ${commonFlags} -Dit.enabled=false -DskipITs"
                     }
 
                     // // Chuyển flag vào biến Groovy để dễ quản lý và nội suy
@@ -205,35 +205,35 @@ pipeline {
 
                 always {
                     echo "Collecting unit test results..."
-                    junit testResults: "${env.SERVICE_PATH}/**/target/surefire-reports/*.xml", allowEmptyResults: true
+                    junit testResults: "**/target/surefire-reports/*.xml", allowEmptyResults: true
                 }
             }
         }
         
         stage('Code Coverage Validation (JaCoCo 70% Threshold)') {
             when { 
-                expression { !params.SKIP_TESTS && env.TARGET_SERVICE != 'root' } 
+                expression { !params.SKIP_TESTS && env.TARGET_SERVICES_LIST != 'root' } 
             }
             steps {
                 script {
                     def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
                     
                     if (params.SKIP_IT == false) {
-                        echo "--- Running Integration Tests & Checking 70% Threshold for ${env.TARGET_SERVICE} ---"
+                        echo "--- Running Integration Tests & Checking 70% Threshold for ${env.TARGET_SERVICES_LIST} ---"
                         // mvn verify sẽ: chạy IT -> gộp kết quả với UT -> chạy jacoco:check (đã cấu hình trong POM)
                         // -DskipUnitTests=true để không chạy lại các bài Unit Test đã chạy ở stage trước
-                        sh "mvn verify -pl ${env.TARGET_SERVICE} -am -DskipUnitTests=true -Dit.enabled=true ${commonFlags}"
+                        sh "mvn verify -pl ${env.TARGET_SERVICES_LIST} -am -DskipUnitTests=true -Dit.enabled=true ${commonFlags}"
                     } else {
                         echo "--- Skipping IT, only validating coverage from Unit Tests ---"
                         // Nếu người dùng chọn skip IT, ta vẫn phải check xem UT có đủ 70% không
-                        sh "mvn jacoco:check -pl ${env.TARGET_SERVICE} -am -Djacoco.line.minimum=0.70"
+                        sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.70"
                     }
                 }
             }
             post {
                 always {
                     echo "Collecting integration test results..."
-                    junit testResults: "${env.SERVICE_PATH}/**/target/failsafe-reports/*.xml", allowEmptyResults: true
+                    junit testResults: "**/target/failsafe-reports/*.xml", allowEmptyResults: true
                 }
             }
         }
