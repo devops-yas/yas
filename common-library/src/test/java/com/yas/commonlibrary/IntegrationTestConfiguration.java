@@ -30,6 +30,7 @@ public class IntegrationTestConfiguration {
         return new KeycloakContainer("quay.io/keycloak/keycloak:26.0")
             .withRealmImportFiles("/test-realm.json")
             .withReuse(false) // TẮT REUSE
+            .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forListeningPort())
             .withStartupTimeout(Duration.ofMinutes(5));
     }
 
