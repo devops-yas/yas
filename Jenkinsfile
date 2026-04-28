@@ -101,6 +101,9 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
+                    echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
+                    sh 'docker system prune -f'
+
                     echo "Running pre-installed Gitleaks for secrets detection..."
                     sh '''
                         # Chạy gitleaks detect. 
