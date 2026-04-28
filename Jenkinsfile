@@ -232,11 +232,11 @@ pipeline {
             steps {
                 echo "Running SonarCloud scan for ${env.TARGET_SERVICES_LIST}..."
                 sh '''
-                    mvn sonar:sonar -pl ${env.TARGET_SERVICES_LIST} -am \
-                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
-                        -Dsonar.organization=${SONAR_ORGANIZATION} \
+                    mvn sonar:sonar -pl $TARGET_SERVICES_LIST -am \
+                        -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+                        -Dsonar.organization=$SONAR_ORGANIZATION \
                         -Dsonar.host.url=https://sonarcloud.io \
-                        -Dsonar.token=${SONAR_TOKEN} \
+                        -Dsonar.token=$SONAR_TOKEN \
                         -Dsonar.maven.scanAll=false \
                         -Dsonar.qualitygate.wait=true \
                         -Dmaven.javadoc.skip=true
