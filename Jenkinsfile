@@ -5,7 +5,7 @@ pipeline {
     agent {
         docker {
             image 'maven:3.9-eclipse-temurin-21'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --privileged --user root'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --network host --privileged --user root'
         }
     }
     options {

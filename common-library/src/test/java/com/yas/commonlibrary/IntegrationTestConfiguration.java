@@ -15,6 +15,9 @@ import java.time.Duration;
 @ConditionalOnProperty(name = "it.enabled", havingValue = "true", matchIfMissing = false)
 public class IntegrationTestConfiguration {
 
+    private static final org.testcontainers.containers.Network SHARED_NETWORK = org.testcontainers.containers.Network.newNetwork();
+
+
     @Bean(destroyMethod = "stop")
     @ServiceConnection
     public PostgreSQLContainer<?> postgresContainer() {
@@ -22,6 +25,7 @@ public class IntegrationTestConfiguration {
             .withDatabaseName("test")
             .withUsername("test")
             .withPassword("test")
+            .withNetwork(SHARED_NETWORK)
             .withReuse(false) // TẮT REUSE ĐỂ TRÁNH RÁC TRÊN JENKINS
             .waitingFor(Wait.forListeningPort())
             .withStartupTimeout(Duration.ofMinutes(2));
@@ -30,9 +34,12 @@ public class IntegrationTestConfiguration {
     @Bean(destroyMethod = "stop")
     public KeycloakContainer keycloakContainer() {
         return new KeycloakContainer("quay.io/keycloak/keycloak:26.0")
+            .withNetwork(SHARED_NETWORK)
             .withRealmImportFiles("/test-realm.json")
+            .withCommand("start-dev") // BẮT BUỘC: Chế độ development để bỏ qua HTTPS
+            .withEnv("KC_HEALTH_ENABLED", "true") // Kích hoạt endpoint health check
             .withReuse(false) // TẮT REUSE
-            .waitingFor(org.testcontainers.containers.wait.strategy.Wait.forListeningPort())
+            .waitingFor(Wait.forHttp("/health/ready").forPort(8080))
             .withStartupTimeout(Duration.ofMinutes(5));
     }
 
