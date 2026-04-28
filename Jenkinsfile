@@ -15,9 +15,9 @@ pipeline {
     }
     
     environment {
-        MAVEN_OPTS = '-Xmx3g -Xms1024m'
+        MAVEN_OPTS = '-Xmx1g -Xms512m'
         TESTCONTAINERS_CONTAINER_STARTUP_TIMEOUT = '300'
-        TESTCONTAINERS_RYUK_DISABLED = 'true'
+        TESTCONTAINERS_RYUK_DISABLED = 'false'
         SONAR_TOKEN = credentials('sonarcloud-token')
         SONAR_ORGANIZATION = 'devops-yas'
         SONAR_PROJECT_KEY = 'devops-yas_yas'
@@ -57,35 +57,25 @@ pipeline {
         
         stage('Detect Changed Service') {
             steps {
-                script {
-                    echo "Detecting changed services in monorepo..."
-                    if (params.SERVICE == 'auto') {
-                        def changedService = sh(
-                            script: '''
-                                CHANGED=$(git diff --name-only origin/main...HEAD 2>/dev/null || git diff --name-only HEAD~1..HEAD)
-                                SERVICE=$(echo "$CHANGED" | head -1 | cut -d"/" -f1)
-                                if [ -f "$SERVICE/pom.xml" ]; then
-                                    echo "$SERVICE"
-                                else
-                                    echo "root"
-                                fi
-                            ''',
-                            returnStdout: true
-                        ).trim()
-                        env.TARGET_SERVICE = changedService
-                        echo "Auto-detected service: ${env.TARGET_SERVICE}"
+                echo "Detecting changed services..."
+                // Lấy danh sách tất cả các thư mục cấp 1 có thay đổi
+                def changedFiles = sh(script: "git diff --name-only origin/main...HEAD", returnStdout: true).trim()
+                def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
+
+                if (params.SERVICE != 'auto') {
+                    env.TARGET_SERVICE = params.SERVICE
+                } else {
+                    // Ưu tiên: Nếu có sửa đổi trong common-library, ta nên ưu tiên build nó hoặc báo lỗi
+                    if (folders.contains('common-library')) {
+                        env.TARGET_SERVICE = 'common-library'
                     } else {
-                        env.TARGET_SERVICE = params.SERVICE
-                        echo "Manual service selected: ${params.SERVICE}"
-                    }
-                    
-                    env.SERVICE_PATH = env.TARGET_SERVICE == 'root' ? '.' : env.TARGET_SERVICE
-                    env.POM_FILE = env.SERVICE_PATH + '/pom.xml'
-                    
-                    if (!fileExists(env.POM_FILE)) {
-                        error("pom.xml not found for service: ${env.TARGET_SERVICE}")
+                        // Lấy service đầu tiên trong danh sách folders (loại bỏ các file linh tinh như Jenkinsfile)
+                        def service = folders.find { fileExists("${it}/pom.xml") }
+                        env.TARGET_SERVICE = service ?: 'root'
                     }
                 }
+                env.SERVICE_PATH = env.TARGET_SERVICE == 'root' ? '.' : env.TARGET_SERVICE
+                echo "Mục tiêu xử lý: ${env.TARGET_SERVICE}"
             }
         }
         
@@ -198,28 +188,10 @@ pipeline {
         stage('Code Coverage Validation (JaCoCo 70% Threshold)') {
             when { expression { !params.SKIP_TESTS } }
             steps {
-                echo "Validating code coverage for $TARGET_SERVICE..."
-                sh '''
-                    # Tìm file report trong thư mục của service
-                    REPORT_PATH=$(find . -name "index.csv" | grep "$TARGET_SERVICE" | grep "jacoco" | head -1)
-                    
-                    if [ -z "$REPORT_PATH" ]; then
-                        echo "Generating JaCoCo report..."
-                        mvn jacoco:report -pl $TARGET_SERVICE -am -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
-                        REPORT_PATH=$(find . -name "index.csv" | grep "$TARGET_SERVICE" | grep "jacoco" | head -1)
-                    fi
-                    
-                    if [ -f "$REPORT_PATH" ]; then
-                        COVERAGE=$(tail -1 "$REPORT_PATH" | cut -d',' -f5 | tr -d '%')
-                        echo "Code Coverage Result: ${COVERAGE}%"
-                        if [ "$COVERAGE" -lt 70 ]; then
-                            echo "ERROR: Code coverage ${COVERAGE}% is below 70%"
-                            exit 1
-                        fi
-                    else
-                        echo "WARNING: JaCoCo report not found at $REPORT_PATH"
-                    fi
-                '''
+                echo "Kiểm tra độ phủ code cho ${env.TARGET_SERVICE}..."
+                // Lệnh này sẽ quét file jacoco.exec vừa tạo ra ở stage Test
+                // Nếu độ phủ < 0.7 (70%), Maven sẽ trả về lỗi và Jenkins sẽ dừng stage này ngay lập tức.
+                sh "mvn jacoco:check -pl ${env.TARGET_SERVICE} -am -Djacoco.haltOnFailure=true -Djacoco.line.minimum=0.70"
             }
         }
         
@@ -236,6 +208,7 @@ pipeline {
                         -Dsonar.host.url=https://sonarcloud.io \
                         -Dsonar.login=${SONAR_TOKEN} \
                         -Dsonar.maven.scanAll=false \
+                        -Dsonar.qualitygate.wait=true \
                         -Dmaven.javadoc.skip=true
                 '''
             }
