@@ -20,6 +20,7 @@ pipeline {
         TESTCONTAINERS_RYUK_DISABLED = 'true'
         SONAR_TOKEN = credentials('sonarcloud-token')
         SONAR_ORGANIZATION = 'nashtech-garage'
+        SONAR_PROJECT_KEY = 'devops-yas_yas'
         DOCKER_REGISTRY_CREDS = credentials('docker-hub-credentials')
         REGISTRY_URL = 'docker.io'
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
@@ -216,11 +217,12 @@ pipeline {
             steps {
                 echo "Running SonarCloud scan for $TARGET_SERVICE..."
                 sh '''
-                    # Chạy Sonar từ root để nhận diện biến ${revision}
                     mvn sonar:sonar -pl $TARGET_SERVICE -am \
+                        -Dsonar.projectKey=${SONAR_PROJECT_KEY} \
                         -Dsonar.organization=${SONAR_ORGANIZATION} \
                         -Dsonar.host.url=https://sonarcloud.io \
                         -Dsonar.login=${SONAR_TOKEN} \
+                        -Dsonar.maven.scanAll=false \
                         -Dmaven.javadoc.skip=true
                 '''
             }
@@ -322,7 +324,7 @@ pipeline {
                     allowMissing: true,
                     alwaysLinkToLastBuild: true,
                     keepAll: true,
-                    reportDir: "${env.TARGET_SERVICE}/target/site/jacoco", // Đường dẫn chuẩn của JaCoCo
+                    reportDir: "${env.SERVICE_PATH}/target/site/jacoco", // Đường dẫn chuẩn của JaCoCo
                     reportFiles: 'index.html',
                     reportName: 'JaCoCo Code Coverage Report'
                 ])
