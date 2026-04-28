@@ -165,49 +165,12 @@ pipeline {
                     echo "--- Running Unit Tests for ${env.TARGET_SERVICES_LIST} ---"
                     script {
                         def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
-                        // Chỉ chạy 'mvn test', không chạy 'verify' để bỏ qua IT
                         sh "mvn test -pl ${env.TARGET_SERVICES_LIST} -am ${commonFlags} -Dit.enabled=false -DskipITs"
                     }
-
-                    // // Chuyển flag vào biến Groovy để dễ quản lý và nội suy
-                    // def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
-                    
-                    // sh """
-                    //     if [ "$TARGET_SERVICE" = "root" ]; then
-                    //         echo "Running unit tests only for root..."
-                    //         # -DskipITs: Ngăn chặn hoàn toàn plugin Failsafe quét các class *IT.java
-                    //         mvn test ${commonFlags} -Dit.enabled=false -DskipITs
-                    //     else
-                    //         echo "--- Step 1: Running Unit Tests for $TARGET_SERVICE ---"
-                    //         # Ép buộc bỏ qua IT ở cả tầng Maven Plugin và tầng Spring Context
-                    //         mvn test -pl $TARGET_SERVICE -am ${commonFlags} -Dit.enabled=false -DskipITs
-                            
-                    //         if [ "${params.SKIP_IT}" != "true" ]; then
-                    //             echo "--- Step 2: Running Integration Tests for $TARGET_SERVICE ---"
-                    //             # Chỉ khi chạy IT mới bật it.enabled=true và cho phép chạy verify
-                    //             mvn verify -pl $TARGET_SERVICE -am -DskipUnitTests -Dit.enabled=true ${commonFlags}
-                    //         else
-                    //             echo ">>> SKIP_IT is true: Integration Tests and Docker containers are disabled."
-                    //         fi
-                    //     fi
-                    // """
+                   
                 }
             }
-            post {
-                // always {
-                //     echo "Collecting test results..."
-                //     script {
-                //         // Quét kết quả test dựa trên service path để chính xác hơn
-                //         def reportPattern = "${env.SERVICE_PATH}/**/target/surefire-reports/*.xml,${env.SERVICE_PATH}/**/target/failsafe-reports/*.xml"
-                //         junit testResults: reportPattern, allowEmptyResults: true
-                //     }
-                // }
-
-                // always {
-                //     echo "Collecting unit test results..."
-                //     junit testResults: "**/target/surefire-reports/*.xml", allowEmptyResults: true, skipPublishingChecks: true
-                // }
-
+            post {           
                 always {
                     script {
                         echo "Collecting test results..."
