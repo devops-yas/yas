@@ -42,7 +42,7 @@ public class IntegrationTestConfiguration {
             .withEnv("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
             .withEnv("KC_HEALTH_ENABLED", "true") // Kích hoạt endpoint health check
             .withReuse(false) // TẮT REUSE
-            .waitingFor(Wait.forHttp("/health/ready").forPort(8080))
+            .waitingFor(Wait.forListeningPort())
             .withStartupTimeout(Duration.ofMinutes(5))
             .withCreateContainerCmdModifier(cmd -> cmd.getHostConfig().withMemory(1024L * 1024 * 1024));
     }
