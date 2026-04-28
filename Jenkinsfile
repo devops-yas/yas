@@ -58,39 +58,36 @@ pipeline {
         stage('Detect Changed Service') {
             steps {
                 script {
-                    echo "Detecting changed services..."
-                    // 1. Fetch thông tin để có cái mà so sánh
-                    sh "git fetch origin main --quiet"
+                    echo "Fetching main branch history..."
+                    // Chiến thuật đúng nhất: Fetch kèm theo ánh xạ nhánh để Git nhận diện được 'main'
+                    sh "git fetch origin main:remotes/origin/main --quiet"
 
-                    // 2. Lấy danh sách file thay đổi
-                    def changedFiles = sh(script: "git diff --name-only origin/main...HEAD", returnStdout: true).trim()
+                    echo "Detecting changed services..."
+                    // Sử dụng remotes/origin/main để chỉ định chính xác vị trí nhánh vừa fetch
+                    def changedFiles = sh(
+                        script: "git diff --name-only remotes/origin/main...HEAD", 
+                        returnStdout: true
+                    ).trim()
 
                     if (!changedFiles) {
-                        echo "Không tìm thấy thay đổi so với main. Mặc định xử lý service từ parameters."
+                        echo "Không tìm thấy file thay đổi so với main. Sử dụng tham số hoặc mặc định 'root'."
                         env.TARGET_SERVICE = params.SERVICE == 'auto' ? 'root' : params.SERVICE
                     } else {
-                        // 3. Tách lấy folder cấp 1
                         def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
-                        echo "Các thư mục có thay đổi: ${folders}"
+                        echo "Thư mục thay đổi: ${folders}"
 
                         if (params.SERVICE != 'auto') {
                             env.TARGET_SERVICE = params.SERVICE
+                        } else if (folders.contains('common-library')) {
+                            env.TARGET_SERVICE = 'common-library'
                         } else {
-                            // Ưu tiên build common-library nếu có thay đổi trong đó
-                            if (folders.contains('common-library')) {
-                                env.TARGET_SERVICE = 'common-library'
-                            } else {
-                                // Tìm folder đầu tiên có chứa pom.xml (đúng nghĩa là 1 service Java)
-                                def service = folders.find { folder -> 
-                                    folder && fileExists("${folder}/pom.xml") 
-                                }
-                                env.TARGET_SERVICE = service ?: 'root'
-                            }
+                            def service = folders.find { it && fileExists("${it}/pom.xml") }
+                            env.TARGET_SERVICE = service ?: 'root'
                         }
                     }
-
+                    
                     env.SERVICE_PATH = env.TARGET_SERVICE == 'root' ? '.' : env.TARGET_SERVICE
-                    echo ">>> Kết quả: TARGET_SERVICE = ${env.TARGET_SERVICE}"
+                    echo ">>> TARGET_SERVICE được chọn: ${env.TARGET_SERVICE}"
                 }
             }
         }
