@@ -2,34 +2,16 @@ pipeline {
     agent any
 
     tools {
-        maven 'Maven 3.9'
-    }
-
-    environment {
-        CHANGED_FILES = ''
-        JAVA_HOME = '/usr/lib/jvm/java-21-openjdk-amd64'
-        PATH = "${JAVA_HOME}/bin:${env.PATH}"
+        maven 'Maven 3.9' 
+        jdk 'Java 21'    
     }
 
     stages {
-        stage('Detect Changes') {
-            steps {
-                script {
-                    // Ensure we are on the correct branch and have the latest code
-                    checkout scm
-                    
-                    // Get the list of changed files between the current commit and the previous one
-                    def changedFilesList = sh(script: 'git diff --name-only HEAD~1 HEAD', returnStdout: true).trim().split('\n')
-                    env.CHANGED_FILES = changedFilesList.join(',')
-                    echo "Changed files: ${env.CHANGED_FILES}"
-                }
-            }
-        }
-
         stage('Monorepo Build & Test') {
             parallel {
+
                 stage('Media Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('media/') } } }
+                    when { changeset "media/**" }
                     steps {
                         echo 'Changes detected in Media Service. Starting Build & Test...'
                         sh 'mvn clean test -pl media -am'
@@ -37,7 +19,7 @@ pipeline {
                 }
 
                 stage('Product Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('product/') } } }
+                    when { changeset "product/**" }
                     steps {
                         echo 'Changes detected in Product Service. Starting Build & Test...'
                         sh 'mvn clean test -pl product -am'
@@ -45,7 +27,7 @@ pipeline {
                 }
 
                 stage('Cart Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('cart/') } } }
+                    when { changeset "cart/**" }
                     steps {
                         echo 'Changes detected in Cart Service. Starting Build & Test...'
                         sh 'mvn clean test -pl cart -am'
@@ -53,7 +35,7 @@ pipeline {
                 }
 
                 stage('Rating Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('rating/') } } }
+                    when { changeset "rating/**" }
                     steps {
                         echo 'Changes detected in Rating Service. Starting Build & Test...'
                         sh 'mvn clean test -pl rating -am'
@@ -61,7 +43,7 @@ pipeline {
                 }
 
                 stage('Tax Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('tax/') } } }
+                    when { changeset "tax/**" }
                     steps {
                         echo 'Changes detected in Tax Service. Starting Build & Test...'
                         sh 'mvn clean test -pl tax -am'
@@ -69,7 +51,7 @@ pipeline {
                 }
 
                 stage('Webhook Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('webhook/') } } }
+                    when { changeset "webhook/**" }
                     steps {
                         echo 'Changes detected in Webhook Service. Starting Build & Test...'
                         sh 'mvn clean test -pl webhook -am'
@@ -77,7 +59,7 @@ pipeline {
                 }
 
                 stage('Promotion Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('promotion/') } } }
+                    when { changeset "promotion/**" }
                     steps {
                         echo 'Changes detected in Promotion Service. Starting Build & Test...'
                         sh 'mvn clean test -pl promotion -am'
@@ -85,7 +67,7 @@ pipeline {
                 }
 
                 stage('Location Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('location/') } } }
+                    when { changeset "location/**" }
                     steps {
                         echo 'Changes detected in Location Service. Starting Build & Test...'
                         sh 'mvn clean test -pl location -am'
@@ -93,19 +75,20 @@ pipeline {
                 }
 
                 stage('Inventory Service') {
-                    when { expression { env.CHANGED_FILES.split(',').any { it.startsWith('inventory/') } } }
+                    when { changeset "inventory/**" }
                     steps {
                         echo 'Changes detected in Inventory Service. Starting Build & Test...'
                         sh 'mvn clean test -pl inventory -am'
                     }
                 }
+
             }
         }
     }
     
     post {
         always {
-            junit '**/target/surefire-reports/*.xml'
+            junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
         }
     }
 }
