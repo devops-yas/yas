@@ -36,7 +36,10 @@ public class IntegrationTestConfiguration {
         return new KeycloakContainer("quay.io/keycloak/keycloak:26.0")
             .withNetwork(SHARED_NETWORK)
             .withRealmImportFiles("/test-realm.json")
-            .withCommand("start-dev") // BẮT BUỘC: Chế độ development để bỏ qua HTTPS
+            .withEnv("KC_HTTP_ENABLED", "true")
+            .withEnv("KC_HOSTNAME_STRICT", "false")
+            .withEnv("KC_BOOTSTRAP_ADMIN_USERNAME", "admin")
+            .withEnv("KC_BOOTSTRAP_ADMIN_PASSWORD", "admin")
             .withEnv("KC_HEALTH_ENABLED", "true") // Kích hoạt endpoint health check
             .withReuse(false) // TẮT REUSE
             .waitingFor(Wait.forHttp("/health/ready").forPort(8080))
