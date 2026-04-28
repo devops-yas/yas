@@ -57,25 +57,27 @@ pipeline {
         
         stage('Detect Changed Service') {
             steps {
-                echo "Detecting changed services..."
-                // Lấy danh sách tất cả các thư mục cấp 1 có thay đổi
-                def changedFiles = sh(script: "git diff --name-only origin/main...HEAD", returnStdout: true).trim()
-                def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
+                script{
+                    echo "Detecting changed services..."
+                    // Lấy danh sách tất cả các thư mục cấp 1 có thay đổi
+                    def changedFiles = sh(script: "git diff --name-only origin/main...HEAD", returnStdout: true).trim()
+                    def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
 
-                if (params.SERVICE != 'auto') {
-                    env.TARGET_SERVICE = params.SERVICE
-                } else {
-                    // Ưu tiên: Nếu có sửa đổi trong common-library, ta nên ưu tiên build nó hoặc báo lỗi
-                    if (folders.contains('common-library')) {
-                        env.TARGET_SERVICE = 'common-library'
+                    if (params.SERVICE != 'auto') {
+                        env.TARGET_SERVICE = params.SERVICE
                     } else {
-                        // Lấy service đầu tiên trong danh sách folders (loại bỏ các file linh tinh như Jenkinsfile)
-                        def service = folders.find { fileExists("${it}/pom.xml") }
-                        env.TARGET_SERVICE = service ?: 'root'
+                        // Ưu tiên: Nếu có sửa đổi trong common-library, ta nên ưu tiên build nó hoặc báo lỗi
+                        if (folders.contains('common-library')) {
+                            env.TARGET_SERVICE = 'common-library'
+                        } else {
+                            // Lấy service đầu tiên trong danh sách folders (loại bỏ các file linh tinh như Jenkinsfile)
+                            def service = folders.find { fileExists("${it}/pom.xml") }
+                            env.TARGET_SERVICE = service ?: 'root'
+                        }
                     }
+                    env.SERVICE_PATH = env.TARGET_SERVICE == 'root' ? '.' : env.TARGET_SERVICE
+                    echo "Mục tiêu xử lý: ${env.TARGET_SERVICE}"
                 }
-                env.SERVICE_PATH = env.TARGET_SERVICE == 'root' ? '.' : env.TARGET_SERVICE
-                echo "Mục tiêu xử lý: ${env.TARGET_SERVICE}"
             }
         }
         
@@ -92,8 +94,8 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-                    echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
-                    sh 'docker system prune -f'
+                    // echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
+                    // sh 'docker system prune -f'
 
                     echo "Running pre-installed Gitleaks for secrets detection..."
                     sh '''
