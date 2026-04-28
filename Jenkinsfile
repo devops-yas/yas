@@ -19,7 +19,7 @@ pipeline {
         TESTCONTAINERS_CONTAINER_STARTUP_TIMEOUT = '300'
         TESTCONTAINERS_RYUK_DISABLED = 'true'
         SONAR_TOKEN = credentials('sonarcloud-token')
-        SONAR_ORGANIZATION = 'nashtech-garage'
+        SONAR_ORGANIZATION = 'devops-yas'
         SONAR_PROJECT_KEY = 'devops-yas_yas'
         DOCKER_REGISTRY_CREDS = credentials('docker-hub-credentials')
         REGISTRY_URL = 'docker.io'
