@@ -203,9 +203,20 @@ pipeline {
                 //     }
                 // }
 
+                // always {
+                //     echo "Collecting unit test results..."
+                //     junit testResults: "**/target/surefire-reports/*.xml", allowEmptyResults: true, skipPublishingChecks: true
+                // }
+
                 always {
-                    echo "Collecting unit test results..."
-                    junit testResults: "**/target/surefire-reports/*.xml", allowEmptyResults: true, skipPublishingChecks: true
+                    script {
+                        echo "Collecting test results..."
+                        withEnv(['CHECKS_SKIP_PUBLISH=true']) {
+                            junit testResults: "**/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
+                                allowEmptyResults: true, 
+                                skipPublishingChecks: true
+                        }
+                    }
                 }
             }
         }
@@ -231,9 +242,20 @@ pipeline {
                 }
             }
             post {
+                // always {
+                //     echo "Collecting integration test results..."
+                //     junit testResults: "**/target/failsafe-reports/*.xml", allowEmptyResults: true, skipPublishingChecks: true
+                // }
+
                 always {
-                    echo "Collecting integration test results..."
-                    junit testResults: "**/target/failsafe-reports/*.xml", allowEmptyResults: true, skipPublishingChecks: true
+                    script {
+                        echo "Collecting test results..."
+                        withEnv(['CHECKS_SKIP_PUBLISH=true']) {
+                            junit testResults: "**/target/failsafe-reports/*.xml", 
+                                allowEmptyResults: true, 
+                                skipPublishingChecks: true
+                        }
+                    }
                 }
             }
         }
