@@ -349,4 +349,38 @@ class PromotionServiceTest {
             )
         );
     }
+    @Test
+    void updatePromotion_ThenSuccess() {
+        com.yas.promotion.viewmodel.PromotionPutVm putVm = new com.yas.promotion.viewmodel.PromotionPutVm();
+        putVm.setId(promotion1.getId());
+        putVm.setName("Updated Promotion");
+        putVm.setSlug("updated-promotion");
+        putVm.setDescription("Updated Description");
+        putVm.setCouponCode("updatedCode");
+        putVm.setDiscountType(DiscountType.FIXED);
+        putVm.setDiscountAmount(500L);
+        putVm.setDiscountPercentage(0L);
+        putVm.setIsActive(true);
+        putVm.setUsageType(UsageType.LIMITED);
+        putVm.setUsageLimit(100);
+        putVm.setApplyTo(ApplyTo.PRODUCT);
+        putVm.setProductIds(List.of(1L, 2L));
+        putVm.setStartDate(Date.from(Instant.now()));
+        putVm.setEndDate(Date.from(Instant.now().plus(10, ChronoUnit.DAYS)));
+
+        PromotionDetailVm result = promotionService.updatePromotion(putVm);
+        assertEquals("Updated Promotion", result.name());
+        assertEquals("updated-promotion", result.slug());
+    }
+
+    @Test
+    void deletePromotion_ThenSuccess() {
+        // Xóa promotion
+        promotionService.deletePromotion(promotion1.getId());
+        
+        // Cố gắng tìm lại sẽ văng lỗi NotFound
+        var exception = assertThrows(NotFoundException.class, 
+            () -> promotionService.getPromotion(promotion1.getId()));
+        assertEquals(String.format(Constants.ErrorCode.PROMOTION_NOT_FOUND, promotion1.getId()), exception.getMessage());
+    }
 }
