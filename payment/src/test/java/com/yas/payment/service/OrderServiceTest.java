@@ -1,5 +1,6 @@
 package com.yas.payment.service;
 
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static com.yas.payment.util.SecurityContextUtils.setUpSecurityContext;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
@@ -107,5 +108,18 @@ class OrderServiceTest {
         assertThat(result.orderStatus()).isEqualTo("COMPLETED");
         assertThat(result.paymentId()).isEqualTo(78910L);
         assertThat(result.paymentStatus()).isEqualTo("SUCCESS");
+    }
+    @Test
+    void handleLongFallback_ShouldCallSuperMethodAndThrow() {
+        Throwable t = new RuntimeException("Test Circuit Breaker Exception");
+        assertThatThrownBy(() -> orderService.handleLongFallback(t))
+            .isInstanceOf(Throwable.class);
+    }
+
+    @Test
+    void handlePaymentOrderStatusFallback_ShouldCallSuperMethodAndThrow() {
+        Throwable t = new RuntimeException("Test Circuit Breaker Exception");
+        assertThatThrownBy(() -> orderService.handlePaymentOrderStatusFallback(t))
+            .isInstanceOf(Throwable.class);
     }
 }

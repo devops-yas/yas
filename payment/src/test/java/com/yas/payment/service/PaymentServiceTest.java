@@ -123,5 +123,34 @@ class PaymentServiceTest {
         assertEquals(capturedPayment.getPaymentStatus(), responseVm.paymentStatus());
         assertEquals(capturedPayment.getFailureMessage(), responseVm.failureMessage());
     }
+    @Test
+    void initPayment_ThrowsIllegalArgumentException_WhenProviderNotFound() {
+        InitPaymentRequestVm request = InitPaymentRequestVm.builder()
+            .paymentMethod("INVALID_METHOD")
+            .totalPrice(BigDecimal.TEN)
+            .checkoutId("123")
+            .build();
 
+        IllegalArgumentException exception = org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class, 
+            () -> paymentService.initPayment(request)
+        );
+
+        assertEquals("No payment handler found for provider: INVALID_METHOD", exception.getMessage());
+    }
+
+    @Test
+    void capturePayment_ThrowsIllegalArgumentException_WhenProviderNotFound() {
+        CapturePaymentRequestVm request = CapturePaymentRequestVm.builder()
+            .paymentMethod("UNSUPPORTED_METHOD")
+            .token("token-xyz")
+            .build();
+
+        IllegalArgumentException exception = org.junit.jupiter.api.Assertions.assertThrows(
+            IllegalArgumentException.class, 
+            () -> paymentService.capturePayment(request)
+        );
+
+        assertEquals("No payment handler found for provider: UNSUPPORTED_METHOD", exception.getMessage());
+    }
 }

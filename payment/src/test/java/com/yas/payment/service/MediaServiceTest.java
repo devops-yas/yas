@@ -8,6 +8,8 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import org.springframework.test.util.ReflectionTestUtils;
+import com.yas.payment.model.PaymentProvider;
 import com.yas.payment.config.ServiceUrlConfig;
 import com.yas.payment.model.PaymentProvider;
 import com.yas.payment.model.enumeration.PaymentMethod;
@@ -15,6 +17,7 @@ import com.yas.payment.viewmodel.paymentprovider.MediaVm;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -91,5 +94,19 @@ class MediaServiceTest {
         when(requestHeadersUriSpec.headers(any())).thenReturn(requestHeadersUriSpec);
         when(requestHeadersUriSpec.retrieve()).thenReturn(responseSpec);
     }
-
+    @Test
+    public void fallbackGetMediaVmMap_ShouldReturnEmptyMap() {
+        var cod = new PaymentProvider();
+        cod.setMediaId(1L);
+        
+        // Dùng ReflectionTestUtils để gọi hàm private
+        Map<Long, MediaVm> result = ReflectionTestUtils.invokeMethod(
+                mediaService,
+                "fallbackGetMediaVmMap",
+                List.of(cod),
+                new RuntimeException("Circuit breaker open")
+        );
+        
+        assertTrue(result.isEmpty());
+    }
 }

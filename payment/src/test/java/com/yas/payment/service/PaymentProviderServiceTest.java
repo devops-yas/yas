@@ -8,6 +8,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.yas.payment.viewmodel.paymentprovider.MediaVm;
 import com.yas.commonlibrary.exception.NotFoundException;
 import com.yas.payment.mapper.CreatePaymentProviderMapper;
 import com.yas.payment.mapper.PaymentProviderMapper;
@@ -18,6 +19,7 @@ import com.yas.payment.viewmodel.paymentprovider.CreatePaymentVm;
 import com.yas.payment.viewmodel.paymentprovider.PaymentProviderVm;
 import com.yas.payment.viewmodel.paymentprovider.UpdatePaymentVm;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import org.jetbrains.annotations.NotNull;
@@ -200,5 +202,24 @@ class PaymentProviderServiceTest {
         updatePaymentVm.setConfigureUrl(randomVal);
         updatePaymentVm.setLandingViewComponentName(randomVal);
         return updatePaymentVm;
+    }
+    @Test
+    @DisplayName("Get enabled payment providers should map Icon URL correctly")
+    void getEnabledPaymentProviders_ShouldReturnList_WhenMediaMapIsNotEmpty() {
+        // Given
+        paymentProvider.setMediaId(1L);
+        List<PaymentProvider> enabledProviders = List.of(paymentProvider);
+        when(paymentProviderRepository.findByEnabledTrue(defaultPageable)).thenReturn(enabledProviders);
+        
+        MediaVm mediaVm = MediaVm.builder().id(1L).url("http://icon-url.yas.com").build();
+        when(mediaService.getMediaVmMap(enabledProviders)).thenReturn(Map.of(1L, mediaVm));
+
+        // When
+        List<PaymentProviderVm> result = paymentProviderService.getEnabledPaymentProviders(defaultPageable);
+
+        // Then
+        assertThat(result).hasSize(1);
+        assertThat(result.getFirst().getIconUrl()).isEqualTo("http://icon-url.yas.com");
+        verify(mediaService, times(1)).getMediaVmMap(enabledProviders);
     }
 }
