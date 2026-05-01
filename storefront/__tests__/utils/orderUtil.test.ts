@@ -13,9 +13,7 @@ describe('orderUtil', () => {
     expect(getOrderStatusTitle(EOrderStatus.ACCEPTED)).toBe('Accepted');
     expect(getOrderStatusTitle(EOrderStatus.COMPLETED)).toBe('Completed');
     expect(getOrderStatusTitle(EOrderStatus.CANCELLED)).toBe('Cancelled');
-    expect(getOrderStatusTitle(EOrderStatus.PENDING_PAYMENT)).toBe(
-      'Pending Payment'
-    );
+    expect(getOrderStatusTitle(EOrderStatus.PENDING_PAYMENT)).toBe('Pending Payment');
     expect(getOrderStatusTitle(EOrderStatus.PAID)).toBe('Paid');
     expect(getOrderStatusTitle(EOrderStatus.REFUND)).toBe('Refund');
     expect(getOrderStatusTitle(EOrderStatus.SHIPPING)).toBe('Shipping');
@@ -27,38 +25,24 @@ describe('orderUtil', () => {
   });
 
   it('maps delivery methods to titles', () => {
-    expect(getDeliveryMethodTitle(EDeliveryMethod.GRAB_EXPRESS)).toBe(
-      'Grab Express'
-    );
-    expect(getDeliveryMethodTitle(EDeliveryMethod.VIETTEL_POST)).toBe(
-      'Viettel Post'
-    );
-    expect(getDeliveryMethodTitle(EDeliveryMethod.SHOPEE_EXPRESS)).toBe(
-      'Shopee Express'
-    );
-    expect(getDeliveryMethodTitle(EDeliveryMethod.YAS_EXPRESS)).toBe(
-      'Yas Express'
-    );
+    expect(getDeliveryMethodTitle(EDeliveryMethod.GRAB_EXPRESS)).toBe('Grab Express');
+    expect(getDeliveryMethodTitle(EDeliveryMethod.VIETTEL_POST)).toBe('Viettel Post');
+    expect(getDeliveryMethodTitle(EDeliveryMethod.SHOPEE_EXPRESS)).toBe('Shopee Express');
+    expect(getDeliveryMethodTitle(EDeliveryMethod.YAS_EXPRESS)).toBe('Yas Express');
   });
 
   it('returns Preparing for unknown delivery method', () => {
-    expect(getDeliveryMethodTitle('UNKNOWN' as EDeliveryMethod)).toBe(
-      'Preparing'
-    );
+    expect(getDeliveryMethodTitle('UNKNOWN' as EDeliveryMethod)).toBe('Preparing');
   });
 
   it('maps delivery statuses to titles', () => {
     expect(getDeliveryStatusTitle(EDeliveryStatus.CANCELLED)).toBe('Cancelled');
     expect(getDeliveryStatusTitle(EDeliveryStatus.DELIVERED)).toBe('Delivered');
-    expect(getDeliveryStatusTitle(EDeliveryStatus.DELIVERING)).toBe(
-      'Delivering'
-    );
+    expect(getDeliveryStatusTitle(EDeliveryStatus.DELIVERING)).toBe('Delivering');
     expect(getDeliveryStatusTitle(EDeliveryStatus.PENDING)).toBe('Pending');
   });
 
   it('returns Preparing for unknown delivery status', () => {
-    expect(getDeliveryStatusTitle('UNKNOWN' as EDeliveryStatus)).toBe(
-      'Preparing'
-    );
+    expect(getDeliveryStatusTitle('UNKNOWN' as EDeliveryStatus)).toBe('Preparing');
   });
 });
