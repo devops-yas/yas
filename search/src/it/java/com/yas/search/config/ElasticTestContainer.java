@@ -18,8 +18,4 @@ public class ElasticTestContainer extends ElasticsearchContainer {
         this.withEnv("xpack.security.transport.ssl.enabled", "false");
         this.withEnv("xpack.security.http.ssl.enabled", "false");
     }
-
-    // Dummy comment to trigger Jenkins Pipeline for Search Service
-    // Dummy comment to trigger Jenkins Pipeline for Search Service
-    // Dummy comment to trigger Jenkins Pipeline for Search Service
 }
