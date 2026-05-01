@@ -1,5 +1,10 @@
 name: sampledata service ci
 
+permissions:
+  contents: read
+  checks: write
+  pull-requests: write
+
 on:
   push:
     branches: ["main"]
