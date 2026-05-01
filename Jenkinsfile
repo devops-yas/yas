@@ -7,6 +7,26 @@ pipeline {
     }
 
     stages {
+        stage('Security Scan: Gitleaks') {
+            steps {
+                echo 'Scanning for hardcoded secrets with Gitleaks...'
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    sh 'docker run --rm -v ${WORKSPACE}:/path zricethezav/gitleaks:latest detect --source="/path" -v'
+                }
+            }
+        }
+
+        stage('SCA Scan: Snyk') {
+            steps {
+                echo 'Scanning dependencies for vulnerabilities with Snyk...'
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                        sh 'docker run --rm -e SNYK_TOKEN=${SNYK_TOKEN} -v ${WORKSPACE}:/app snyk/snyk:maven snyk test --all-projects'
+                    }
+                }
+            }
+        }
+
         stage('Monorepo Build & Test') {
             parallel {
 
@@ -178,6 +198,17 @@ pipeline {
                     }
                 }
 
+            }
+        }
+
+        stage('Code Quality: SonarQube') {
+            steps {
+                echo 'Running SonarQube analysis...'
+                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                    withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                        sh 'mvn sonar:sonar -Dsonar.projectKey=yas-monorepo -Dsonar.host.url=http://your-sonarqube-server:9000 -Dsonar.login=${SONAR_TOKEN}'
+                    }
+                }
             }
         }
     }
