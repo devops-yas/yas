@@ -37,3 +37,4 @@ public class IntegrationTestConfiguration {
         };
     }
 }
+// New line
