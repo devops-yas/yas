@@ -54,44 +54,16 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    def affected = []
+                    // Sử dụng git diff đơn giản nhất để lấy danh sách thư mục
+                    def cmd = "git diff --name-only remotes/origin/main...HEAD | cut -d/ -f1 | sort -u"
+                    def diffFolders = sh(script: cmd, returnStdout: true).trim()
                     
-                    // Lấy danh sách changeSets
-                    def changeLogSets = currentBuild.changeSets
-                    
-                    for (int i = 0; i < changeLogSets.size(); i++) {
-                        def entries = changeLogSets[i].items
-                        for (int j = 0; j < entries.size(); j++) {
-                            def entry = entries[j]
-                            
-                            // Sử dụng getAffectedPaths() thay vì affectedFiles để lấy trực tiếp mảng String đường dẫn
-                            def paths = entry.affectedPaths
-                            for (int k = 0; k < paths.size(); k++) {
-                                String path = paths[k]
-                                
-                                // Kiểm tra xem file có nằm trong thư mục con không
-                                if (path.contains('/')) {
-                                    def folder = path.split('/')[0]
-                                    
-                                    // Kiểm tra sự tồn tại của thư mục và pom.xml một cách an toàn
-                                    def pomPath = "${folder}/pom.xml"
-                                    if (folder != 'common-library' && fileExists(pomPath)) {
-                                        affected.add(folder)
-                                    }
-                                }
-                            }
-                        }
-                    }
-
-                    def finalAffected = affected.unique()
-
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        env.TARGET_SERVICES_LIST = finalAffected ? finalAffected.join(",") : "common-library"
+                        env.TARGET_SERVICES_LIST = diffFolders.replace("\n", ",") ?: "common-library"
                     }
-                    
-                    echo "Final Services for Reporting: ${env.TARGET_SERVICES_LIST}"
+                    echo "Dự kiến báo cáo cho: ${env.TARGET_SERVICES_LIST}"
                 }
             }
         }
@@ -550,34 +522,63 @@ pipeline {
     }
     
     post {
+        // always {
+        //     junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
+        //     script {
+        //         echo "Archiving artifacts for all affected services..."
+                
+        //         def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
+
+
+        //         // Dùng wildcard ** để gom báo cáo từ mọi module trong project
+        //         archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
+        //                         allowEmptyArchive: true
+                
+        //         // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
+        //         if (env.TARGET_SERVICES_LIST != null)
+        //         {
+        //             def services = env.TARGET_SERVICES_LIST.split(',')
+        //             for (service in services) {
+        //                 def reportPath = "${service}/target/site/jacoco/index.html"
+        //                 if (fileExists(reportPath)) {
+        //                     publishHTML([
+        //                         allowMissing: true,
+        //                         alwaysLinkToLastBuild: true,
+        //                         keepAll: true,
+        //                         reportDir: "${service}/target/site/jacoco",
+        //                         reportFiles: 'index.html',
+        //                         reportName: "JaCoCo Coverage - ${service}"
+        //                     ])
+        //                 }
+        //             }
+        //         }               
+        //     }
+        // }
+
         always {
-            junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
             script {
-                echo "Archiving artifacts for all affected services..."
+                echo "Đang quét tìm báo cáo JaCoCo trong Workspace..."
+                // Tìm tất cả các thư mục chứa index.html của JaCoCo
+                def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
                 
-                // Dùng wildcard ** để gom báo cáo từ mọi module trong project
-                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
-                                allowEmptyArchive: true
-                
-                // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
-                if (env.TARGET_SERVICES_LIST != null)
-                {
-                    def services = env.TARGET_SERVICES_LIST.split(',')
-                    for (service in services) {
-                        def reportPath = "${service}/target/site/jacoco/index.html"
-                        if (fileExists(reportPath)) {
-                            publishHTML([
-                                allowMissing: true,
-                                alwaysLinkToLastBuild: true,
-                                keepAll: true,
-                                reportDir: "${service}/target/site/jacoco",
-                                reportFiles: 'index.html',
-                                reportName: "JaCoCo Coverage - ${service}"
-                            ])
-                        }
+                if (jacocoReports) {
+                    jacocoReports.split("\n").each { reportPath ->
+                        // Trích xuất tên service từ đường dẫn (ví dụ: ./cart/target/... -> cart)
+                        def serviceName = reportPath.split('/')[1]
+                        def reportDir = "${serviceName}/target/site/jacoco"
+                        
+                        publishHTML([
+                            allowMissing: true,
+                            alwaysLinkToLastBuild: true,
+                            reportDir: reportDir,
+                            reportFiles: 'index.html',
+                            reportName: "JaCoCo Coverage - ${serviceName}"
+                        ])
                     }
-                }               
+                }
             }
+            archiveArtifacts artifacts: "**/target/*.json, snyk-report.json, gitleaks-report.json", allowEmptyArchive: true
+            junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
         }
         
         success {
