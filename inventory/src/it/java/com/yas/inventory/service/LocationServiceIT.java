@@ -41,4 +41,5 @@ class LocationServiceIT {
         assertThrows(CallNotPermittedException.class, () -> locationService.createAddress(addressPostVm));
     }
     // Additional test cases can be added here to cover other scenarios, such as successful retrieval and creation of addresses, handling of exceptions, etc.
+    // Additional test cases can be added here to cover other scenarios, such as successful retrieval and creation of addresses, handling of exceptions, etc.
 }

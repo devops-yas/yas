@@ -54,37 +54,29 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    def affected = []
-                    def changeLogSets = currentBuild.changeSets
+                    // Danh sách các service bạn có trong dự án YAS
+                    def allServices = ['product', 'order', 'customer', 'inventory', 'location', 'media', 
+                                    'payment', 'payment-paypal', 'promotion', 'rating', 'search', 'cart', 
+                                    'recommendation', 'delivery', 'sampledata', 'backoffice-bff', 
+                                    'storefront-bff', 'webhook', 'tax']
                     
-                    // Quét file thay đổi
-                    for (int i = 0; i < changeLogSets.size(); i++) {
-                        def entries = changeLogSets[i].items
-                        for (int j = 0; j < entries.size(); j++) {
-                            def entry = entries[j]
-                            entry.affectedFiles.each { file ->
-                                def pathParts = file.path.split('/')
-                                if (pathParts.size() > 1) {
-                                    def serviceName = pathParts[0]
-                                    // Dùng try-catch để tránh lỗi fileExists làm crash pipeline
-                                    try {
-                                        if (serviceName != 'common-library' && fileExists("${serviceName}/pom.xml")) {
-                                            affected << serviceName
-                                        }
-                                    } catch (Exception e) { /* Bỏ qua nếu lỗi check file */ }
-                                }
-                            }
+                    def affected = []
+                    
+                    // Dùng hàm nạp sẵn của Jenkins để kiểm tra changeset cho từng thư mục
+                    for (service in allServices) {
+                        if (changeset("${service}/**")) {
+                            affected << service
                         }
                     }
-                    
-                    // Gán lại vào env và đảm bảo nó không bao giờ null
-                    def finalResult = affected.unique().join(",")
+
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        env.TARGET_SERVICES_LIST = finalResult ?: "common-library"
+                        // Nếu tìm thấy service đổi thì dùng, không thì mặc định common-library
+                        env.TARGET_SERVICES_LIST = affected ? affected.unique().join(",") : "common-library"
                     }
-                    echo "Services detected: ${env.TARGET_SERVICES_LIST}"
+                    
+                    echo "Services detected for reporting: ${env.TARGET_SERVICES_LIST}"
                 }
             }
         }
