@@ -244,7 +244,7 @@ pipeline {
                 echo 'Running SonarQube analysis...'
                 catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                     withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
-                        sh 'mvn sonar:sonar -Dsonar.projectKey=devops-yas_yas -Dsonar.organization=devops-yas -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=${SONAR_TOKEN}'
+                        sh 'mvn compile sonar:sonar -Dsonar.projectKey=devops-yas_yas -Dsonar.organization=devops-yas -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=${SONAR_TOKEN} -DskipTests'
                     }
                 }
             }
