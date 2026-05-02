@@ -40,4 +40,6 @@ class LocationServiceIT {
         circuitBreakerRegistry.circuitBreaker(CIRCUIT_BREAKER_NAME).transitionToOpenState();
         assertThrows(CallNotPermittedException.class, () -> locationService.createAddress(addressPostVm));
     }
+
+    //make change for test change
 }

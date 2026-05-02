@@ -31,4 +31,6 @@ class ProductServiceIT {
         assertThrows(CallNotPermittedException.class, () -> productService.getProducts(productIds));
         verify(productService, atLeastOnce()).handleProductThumbnailFallback(any());
     }
+
+    //make change for test change
 }
