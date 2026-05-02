@@ -105,21 +105,17 @@ pipeline {
         stage('Snyk Security Scan') {
             steps {
                 script {
-                    echo "Installing Snyk CLI and scanning for vulnerabilities..."
-                    // Sử dụng Secret text đã tạo (biểu tượng tờ giấy có dòng kẻ)
+                    echo "Downloading Snyk Binary and scanning..."
                     withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
                         sh '''
-                            # 1. Cài đặt snyk cục bộ bằng npm (có sẵn trong image Maven)
-                            npm install -g snyk
+                            # 1. Tải Snyk binary chính thức từ GitHub
+                            curl https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                            chmod +x ./snyk
                             
-                            # 2. Chạy quét toàn bộ project YAS
-                            # --token=$SNYK_TOKEN dùng để xác thực trực tiếp
-                            # --all-projects giúp quét tất cả pom.xml (Microservices)
-                            # || true để pipeline không bị dừng nếu tìm thấy lỗ hổng (để còn nộp báo cáo)
-                            snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
+                            # 2. Chạy quét toàn bộ dự án YAS
+                            ./snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
                         '''
-                        
-                        // 3. Lưu lại báo cáo để nộp cho giảng viên
+                        // Lưu artifact để nộp báo cáo
                         archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
                     }
                 }
