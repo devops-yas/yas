@@ -355,50 +355,6 @@ pipeline {
             }
         }
     }
-    /*
-    post {
-        always {
-            script {
-                echo "Archiving artifacts for all affected services..."
-                
-                // Dùng wildcard ** để gom báo cáo từ mọi module trong project
-                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
-                                allowEmptyArchive: true
-                
-                // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
-                def services = env.TARGET_SERVICES_LIST.split(',')
-                for (service in services) {
-                    def reportPath = "${service}/target/site/jacoco/index.html"
-                    if (fileExists(reportPath)) {
-                        publishHTML([
-                            allowMissing: true,
-                            alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: "${service}/target/site/jacoco",
-                            reportFiles: 'index.html',
-                            reportName: "JaCoCo Coverage - ${service}"
-                        ])
-                    }
-                }
-            }
-        }
-        
-        success {
-            echo "SUCCESS: Pipeline completed successfully!"
-            echo "Available Reports:"
-            echo "  - Test Results: ${BUILD_URL}testReport/"
-            echo "  - Coverage Report: ${BUILD_URL}JaCoCo_Code_Coverage_Report/"
-        }
-        
-        failure {
-            echo "FAILURE: Pipeline encountered errors!"
-            echo "Check logs at: ${BUILD_URL}console"
-        }
-        
-        unstable {
-            echo "WARNING: Pipeline is unstable - review warnings above"
-        }
-    }*/
     post {
         always {
             script {
