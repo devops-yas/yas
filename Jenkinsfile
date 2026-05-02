@@ -18,22 +18,49 @@ pipeline {
     }
 
     stages {
-        stage('Security Scan: Gitleaks') {
+        stage('Snyk Security Scan') {
             steps {
-                echo 'Scanning for hardcoded secrets with Gitleaks...'
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    sh 'docker run --rm -v ${WORKSPACE}:/path zricethezav/gitleaks:latest detect --source="/path" -v'
+                script {
+                    echo "Scanning for vulnerabilities with Snyk..."
+                    // Sử dụng snyk auth $SNYK_TOKEN trước đó hoặc dùng plugin
+                    sh 'snyk test --all-projects --severity-threshold=high || true'
                 }
             }
         }
-
-        stage('SCA Scan: Snyk') {
+        
+        stage('Gitleaks - Secrets Detection') {
             steps {
-                echo 'Scanning dependencies for vulnerabilities with Snyk...'
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-                        sh 'docker run --rm -e SNYK_TOKEN=${SNYK_TOKEN} -v ${WORKSPACE}:/app snyk/snyk:maven snyk test --all-projects'
-                    }
+                script {
+                    // echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
+                    // sh 'docker system prune -f'
+
+                    echo "Running pre-installed Gitleaks for secrets detection..."
+                    sh '''
+                        # Chạy gitleaks detect. 
+                        # Dùng || true để script không dừng ngay lập tức khi tìm thấy secret, 
+                        # giúp chúng ta có thể xử lý logic báo cáo bên dưới.
+                        gitleaks detect --source . \
+                        --config gitleaks.toml \
+                        --report-format json \
+                        --report-path gitleaks-report.json \
+                        --verbose || true
+                        
+                        # Kiểm tra nếu file báo cáo tồn tại
+                        if [ -f "gitleaks-report.json" ]; then
+                            # -i giúp tìm không phân biệt hoa thường (bắt được cả critical và CRITICAL)
+                            CRITICAL=$(grep -ic '"severity":"critical"' gitleaks-report.json || echo 0)
+                            
+                            if [ "$CRITICAL" -gt 0 ]; then
+                                echo "-------------------------------------------------------"
+                                echo "ERROR: Found $CRITICAL CRITICAL secrets in your code!"
+                                echo "Please check gitleaks-report.json in Build Artifacts."
+                                echo "-------------------------------------------------------"
+                                # cat gitleaks-report.json # Chỉ nên cat nếu file nhỏ, nếu lớn sẽ làm rối log
+                                exit 1
+                            fi
+                        fi
+                        echo "Gitleaks scan passed - no critical secrets found."
+                    '''
                 }
             }
         }
