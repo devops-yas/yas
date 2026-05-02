@@ -12,10 +12,9 @@ pipeline {
         MAVEN_OPTS = '-Xmx1g -Xms512m'
         TESTCONTAINERS_CONTAINER_STARTUP_TIMEOUT = '300'
         TESTCONTAINERS_RYUK_DISABLED = 'true'
-        SONAR_TOKEN = credentials('sonarcloud-token')
+        SONAR_TOKEN = credentials('sonar-token')
         SONAR_ORGANIZATION = 'devops-yas'
         SONAR_PROJECT_KEY = 'devops-yas_yas'
-        DOCKER_REGISTRY_CREDS = credentials('docker-hub-credentials')
         REGISTRY_URL = 'docker.io'
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
         GIT_BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
