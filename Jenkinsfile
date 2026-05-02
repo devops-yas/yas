@@ -405,8 +405,7 @@ pipeline {
                 echo "Archiving artifacts for all affected services..."
                 
                 // ĐÃ SỬA: Thêm đường dẫn quét toàn bộ file HTML của thư mục jacoco
-                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml, **/target/site/jacoco/**/*", 
-                                allowEmptyArchive: true
+                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml, **/target/site/jacoco/**/*", allowEmptyArchive: true
                 
                 // ĐÃ SỬA: Ép Jenkins xuất thẳng báo cáo của media ra màn hình
                 def mediaReportPath = "media/target/site/jacoco/index.html"
