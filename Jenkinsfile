@@ -54,29 +54,40 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    // Danh sách các service bạn có trong dự án YAS
-                    def allServices = ['product', 'order', 'customer', 'inventory', 'location', 'media', 
-                                    'payment', 'payment-paypal', 'promotion', 'rating', 'search', 'cart', 
-                                    'recommendation', 'delivery', 'sampledata', 'backoffice-bff', 
-                                    'storefront-bff', 'webhook', 'tax']
-                    
                     def affected = []
                     
-                    // Dùng hàm nạp sẵn của Jenkins để kiểm tra changeset cho từng thư mục
-                    for (service in allServices) {
-                        if (changeset("${service}/**")) {
-                            affected << service
+                    // Lấy trực tiếp danh sách commit trong lần build này
+                    def changeLogSets = currentBuild.changeSets
+                    
+                    for (int i = 0; i < changeLogSets.size(); i++) {
+                        def entries = changeLogSets[i].items
+                        for (int j = 0; j < entries.size(); j++) {
+                            def entry = entries[j]
+                            // Lấy danh sách file trong từng commit
+                            def files = entry.affectedFiles
+                            for (int k = 0; k < files.size(); k++) {
+                                def path = files[k].path
+                                // Tách lấy tên thư mục đầu tiên (ví dụ: product, cart...)
+                                def folder = path.split('/')[0]
+                                
+                                // Kiểm tra nếu nó là một thư mục service (có pom.xml)
+                                if (folder != 'common-library' && fileExists("${folder}/pom.xml")) {
+                                    affected << folder
+                                }
+                            }
                         }
                     }
+
+                    def finalAffected = affected.unique()
 
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        // Nếu tìm thấy service đổi thì dùng, không thì mặc định common-library
-                        env.TARGET_SERVICES_LIST = affected ? affected.unique().join(",") : "common-library"
+                        // Nếu tìm thấy thì nối lại, không thì mặc định common-library
+                        env.TARGET_SERVICES_LIST = finalAffected ? finalAffected.join(",") : "common-library"
                     }
                     
-                    echo "Services detected for reporting: ${env.TARGET_SERVICES_LIST}"
+                    echo "Final Services for Reporting: ${env.TARGET_SERVICES_LIST}"
                 }
             }
         }
