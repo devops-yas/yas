@@ -101,6 +101,26 @@ pipeline {
                 echo "  Build Version: ${BUILD_VERSION}"
             }
         }
+
+        stage('Snyk Security Scan') {
+            steps {
+                script {
+                    echo "Downloading Snyk Binary and scanning..."
+                    withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                        sh '''
+                            # 1. Tải Snyk binary chính thức từ GitHub
+                            curl https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                            chmod +x ./snyk
+                            
+                            # 2. Chạy quét toàn bộ dự án YAS
+                            ./snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
+                        '''
+                        // Lưu artifact để nộp báo cáo
+                        archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
+                    }
+                }
+            }
+        }
         
         stage('Gitleaks - Secrets Detection') {
             steps {
