@@ -55,21 +55,28 @@ pipeline {
                 checkout scm
                 script {
                     def affected = []
+                    
+                    // Lấy danh sách changeSets
                     def changeLogSets = currentBuild.changeSets
                     
                     for (int i = 0; i < changeLogSets.size(); i++) {
                         def entries = changeLogSets[i].items
                         for (int j = 0; j < entries.size(); j++) {
                             def entry = entries[j]
-                            entry.affectedFiles.each { file ->
-                                def path = file.path
-                                // Chỉ xử lý nếu file nằm trong một thư mục con (microservice)
-                                if (path.contains('/')) { 
+                            
+                            // Sử dụng getAffectedPaths() thay vì affectedFiles để lấy trực tiếp mảng String đường dẫn
+                            def paths = entry.affectedPaths
+                            for (int k = 0; k < paths.size(); k++) {
+                                String path = paths[k]
+                                
+                                // Kiểm tra xem file có nằm trong thư mục con không
+                                if (path.contains('/')) {
                                     def folder = path.split('/')[0]
                                     
-                                    // Kiểm tra: Không phải common-library VÀ thư mục đó có tồn tại pom.xml
-                                    if (folder != 'common-library' && fileExists("${folder}/pom.xml")) {
-                                        affected << folder
+                                    // Kiểm tra sự tồn tại của thư mục và pom.xml một cách an toàn
+                                    def pomPath = "${folder}/pom.xml"
+                                    if (folder != 'common-library' && fileExists(pomPath)) {
+                                        affected.add(folder)
                                     }
                                 }
                             }
@@ -81,7 +88,6 @@ pipeline {
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        // Tránh giá trị null để không lỗi split() ở stage post
                         env.TARGET_SERVICES_LIST = finalAffected ? finalAffected.join(",") : "common-library"
                     }
                     
