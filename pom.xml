@@ -69,7 +69,7 @@
         <opencsv.version>5.9</opencsv.version>
         <spring-retry.version>2.0.12</spring-retry.version>
         <jacoco-maven-plugin.version>0.8.14</jacoco-maven-plugin.version>
-        <jacoco.line.minimum>0.50</jacoco.line.minimum>
+        <jacoco.line.minimum>0.70</jacoco.line.minimum>
     </properties>
     <dependencyManagement>
         <dependencies>

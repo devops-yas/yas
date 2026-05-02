@@ -8,6 +8,7 @@ pipeline {
             args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --network host --privileged --user root'
         }
     }
+
     options {
         timestamps()
         timeout(time: 1, unit: 'HOURS')
@@ -29,8 +30,8 @@ pipeline {
     }
 
     tools {
-        maven 'maven-3.9'
-        jdk 'jdk-21'
+        maven 'maven-3.9' 
+        jdk 'jdk-21'    
     }
     
     parameters {
@@ -48,57 +49,26 @@ pipeline {
     }
     
     stages {
-        stage('Checkout') {
+        stage('Checkout & Detect') {
             steps {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
-            }
-        }
-        
-        stage('Detect Changed Service') {
-            steps {
                 script {
-                    echo "Fetching main branch history..."
-                    // Chiến thuật đúng nhất: Fetch kèm theo ánh xạ nhánh để Git nhận diện được 'main'
-                    sh "git fetch origin main:remotes/origin/main --quiet"
-
-                    echo "Detecting changed services..."
-                    // Sử dụng remotes/origin/main để chỉ định chính xác vị trí nhánh vừa fetch
-                    def changedFiles = sh(
-                        script: "git diff --name-only remotes/origin/main...HEAD", 
-                        returnStdout: true
-                    ).trim()
-
-                    if (!changedFiles) {
-                        echo "Không tìm thấy file thay đổi so với main. Sử dụng tham số hoặc mặc định 'root'."
-                        env.TARGET_SERVICE = params.SERVICE == 'auto' ? 'root' : params.SERVICE
+                    // Lấy danh sách file thay đổi, lọc lấy thư mục cha, loại bỏ file root
+                    def cmd = "git diff --name-only remotes/origin/main...HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    def folders = sh(script: cmd, returnStdout: true).trim()
+                    
+                    // Chuyển đổi xuống dòng thành dấu phẩy
+                    def cleanedList = folders.split("\n").findAll { it.trim() != "" }.join(",")
+                    
+                    if (params.SERVICE != 'auto') {
+                        env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
-                        echo "Thư mục thay đổi: ${folders}"
-
-                        // Lấy danh sách các service, nối lại bằng dấu phẩy
-                        def affectedServices = folders.findAll { it != 'common-library' && fileExists("${it}/pom.xml") }
-
-                        if (affectedServices) {
-                            env.TARGET_SERVICES_LIST = affectedServices.join(",") 
-                            // Ví dụ: "cart,product,order"
-                        } else {
-                            env.TARGET_SERVICES_LIST = "common-library"
-                        }
-
-                        echo "Affected services: ${env.TARGET_SERVICES_LIST}"
-                    }                       
+                        env.TARGET_SERVICES_LIST = cleanedList ?: "common-library"
+                    }
+                    
+                    echo "Final Services for Maven/Sonar: ${env.TARGET_SERVICES_LIST}"
                 }
-            }
-        }
-        
-        stage('Initialize') {
-            steps {
-                echo "Build Configuration:"
-                echo "  Service: ${env.TARGET_SERVICE}"
-                echo "  Branch: ${GIT_BRANCH_NAME}"
-                echo "  Commit: ${GIT_COMMIT_SHORT}"
-                echo "  Build Version: ${BUILD_VERSION}"
             }
         }
 
@@ -125,14 +95,15 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
+                    // echo "Clean up Docker before starting to avoid port conflicts..."
                     // echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
                     // sh 'docker system prune -f'
 
                     echo "Running pre-installed Gitleaks for secrets detection..."
                     sh '''
-                        # Chạy gitleaks detect. 
-                        # Dùng || true để script không dừng ngay lập tức khi tìm thấy secret, 
-                        # giúp chúng ta có thể xử lý logic báo cáo bên dưới.
+                        # Run gitleaks detect. 
+                        # Use || true so the script doesn't stop immediately when a secret is found, 
+                        # allowing us to handle reporting logic below.
                         gitleaks detect --source . \
                         --config gitleaks.toml \
                         --report-format json \
@@ -158,94 +129,363 @@ pipeline {
                 }
             }
         }
-        
-        stage('Build - Maven Clean Install') {
-            steps {
-                echo "Building project from root to resolve variables..."
-                sh '''
-                    if [ "$TARGET_SERVICE" = "root" ]; then
-                        mvn clean install -DskipTests -Dmaven.javadoc.skip=true
-                    else
-                        # Dùng $TARGET_SERVICE (cú pháp shell) để an toàn nhất
-                        mvn clean install -pl common-library,$TARGET_SERVICE -am -DskipTests \
-                            -Dmaven.javadoc.skip=true \
-                            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
-                    fi
-                '''
-            }
-        }
-        
-        stage('Test Phase - Unit Tests') {
-            when {
-                expression { !params.SKIP_TESTS }
-            }
-            steps {
-                echo "Running tests for ${env.TARGET_SERVICES_LIST}..."
-                script {
-                    echo "--- Running Unit Tests for ${env.TARGET_SERVICES_LIST} ---"
-                    script {
-                        def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
-                        sh "mvn test -pl ${env.TARGET_SERVICES_LIST} -am ${commonFlags} -Dit.enabled=false -DskipITs"
-                    }
-                   
-                }
-            }
-            post {           
-                always {
-                    script {
-                        echo "Collecting test results..."
-                        withEnv(['CHECKS_SKIP_PUBLISH=true']) {
-                            junit testResults: "**/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
-                                allowEmptyResults: true, 
-                                skipPublishingChecks: true
-                        }
-                    }
-                }
-            }
-        }
-        
-        stage('Code Coverage Validation (JaCoCo 70% Threshold)') {
-            when { 
-                expression { !params.SKIP_TESTS && env.TARGET_SERVICES_LIST != 'root' } 
-            }
-            steps {
-                script {
-                    def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
-                    
-                    // if (!params.SKIP_IT) {
-                    //     echo "--- Running Integration Tests & Checking 70% Threshold for ${env.TARGET_SERVICES_LIST} ---"
-                    //     // mvn verify sẽ: chạy IT -> gộp kết quả với UT -> chạy jacoco:check (đã cấu hình trong POM)
-                    //     // -DskipUnitTests=true để không chạy lại các bài Unit Test đã chạy ở stage trước
-                    //     sh "mvn verify -pl ${env.TARGET_SERVICES_LIST} -am -DskipUnitTests=true -Dit.enabled=true ${commonFlags}"
-                    // } else {
-                    //     echo "--- Skipping IT, only validating coverage from Unit Tests ---"
-                    //     // Nếu người dùng chọn skip IT, ta vẫn phải check xem UT có đủ 70% không
-                    //     sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
-                    // }
 
-                    sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
-                }
+        stage('Build Common Library') {
+            steps {
+                // Chỉ clean install thư viện dùng chung trước
+                sh 'mvn clean install -pl common-library -am -DskipTests'
             }
-            post {
-                // always {
-                //     echo "Collecting integration test results..."
-                //     junit testResults: "**/target/failsafe-reports/*.xml", allowEmptyResults: true, skipPublishingChecks: true
-                // }
+        }
 
-                always {
-                    script {
-                        echo "Collecting test results..."
-                        withEnv(['CHECKS_SKIP_PUBLISH=true']) {
-                            junit testResults: "**/target/failsafe-reports/*.xml", 
-                                allowEmptyResults: true, 
-                                skipPublishingChecks: true
-                        }
+        stage('Monorepo Build') {
+            parallel {
+
+                stage('Build Media Service') {
+                    when { changeset "media/**" }
+                    steps {
+                        echo 'Changes detected in Media Service. Starting Build...'
+                        sh 'mvn install -pl media -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
+
+                stage('Build Product Service') {
+                    when { changeset "product/**" }
+                    steps {
+                        echo 'Changes detected in Product Service. Starting Build...'
+                        sh 'mvn install -pl product -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Cart Service') {
+                    when { changeset "cart/**" }
+                    steps {
+                        echo 'Changes detected in Cart Service. Starting Build...'
+                        sh 'mvn install -pl cart -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Rating Service') {
+                    when { changeset "rating/**" }
+                    steps {
+                        echo 'Changes detected in Rating Service. Starting Build...'
+                        sh 'mvn install -pl rating -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Tax Service') {
+                    when { changeset "tax/**" }
+                    steps {
+                        echo 'Changes detected in Tax Service. Starting Build...'
+                        sh 'mvn install -pl tax -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Webhook Service') {
+                    when { changeset "webhook/**" }
+                    steps {
+                        echo 'Changes detected in Webhook Service. Starting Build...'
+                        sh 'mvn install -pl webhook -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Promotion Service') {
+                    when { changeset "promotion/**" }
+                    steps {
+                        echo 'Changes detected in Promotion Service. Starting Build...'
+                        sh 'mvn install -pl promotion -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Location Service') {
+                    when { changeset "location/**" }
+                    steps {
+                        echo 'Changes detected in Location Service. Starting Build...'
+                        sh 'mvn install -pl location -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Inventory Service') {
+                    when { changeset "inventory/**" }
+                    steps {
+                        echo 'Changes detected in Inventory Service. Starting Build...'
+                        sh 'mvn install -pl inventory -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Backoffice Service') {
+                    when { changeset "backoffice/**" }
+                    steps {
+                        echo 'Changes detected in Backoffice Service. Starting Build...'
+                        sh 'mvn install -pl backoffice -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Backoffice BFF') {
+                    when { changeset "backoffice-bff/**" }
+                    steps {
+                        echo 'Changes detected in Backoffice BFF. Starting Build...'
+                        sh 'mvn install -pl backoffice-bff -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Delivery Service') {
+                    when { changeset "delivery/**" }
+                    steps {
+                        echo 'Changes detected in Delivery Service. Starting Build...'
+                        sh 'mvn install -pl delivery -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Identity Service') {
+                    when { changeset "identity/**" }
+                    steps {
+                        echo 'Changes detected in Identity Service. Starting Build...'
+                        sh 'mvn install -pl identity -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Payment Service') {
+                    when { changeset "payment/**" }
+                    steps {
+                        echo 'Changes detected in Payment Service. Starting Build...'
+                        sh 'mvn install -pl payment -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Payment Paypal Service') {
+                    when { changeset "payment-paypal/**" }
+                    steps {
+                        echo 'Changes detected in Payment Paypal Service. Starting Build...'
+                        sh 'mvn install -pl payment-paypal -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Recommendation Service') {
+                    when { changeset "recommendation/**" }
+                    steps {
+                        echo 'Changes detected in Recommendation Service. Starting Build...'
+                        sh 'mvn install -pl recommendation -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Sampledata Service') {
+                    when { changeset "sampledata/**" }
+                    steps {
+                        echo 'Changes detected in Sampledata Service. Starting Build...'
+                        sh 'mvn install -pl sampledata -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Search Service') {
+                    when { changeset "search/**" }
+                    steps {
+                        echo 'Changes detected in Search Service. Starting Build...'
+                        sh 'mvn install -pl search -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Storefront BFF') {
+                    when { changeset "storefront-bff/**" }
+                    steps {
+                        echo 'Changes detected in Storefront BFF. Starting Build...'
+                        sh 'mvn install -pl storefront-bff -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Customer Service') {
+                    when { changeset "customer/**" }
+                    steps {
+                        echo 'Changes detected in Customer Service. Starting Build...'
+                        sh 'mvn install -pl customer -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+                stage('Build Order Service') {
+                    when { changeset "order/**" }
+                    steps {
+                        echo 'Changes detected in Order Service. Starting Build...'
+                        sh 'mvn install -pl order -am -DskipTests -Dmaven.clean.failOnError=false'
+                    }
+                }
+
+            }
+        }
+
+        stage('Monorepo Test & Coverage') {
+            parallel {
+
+                stage('Test Media Service') {
+                    when { changeset "media/**" }
+                    steps {
+                        echo 'Changes detected in Media Service. Starting Tests...'
+                        sh 'mvn test -pl media -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Product Service') {
+                    when { changeset "product/**" }
+                    steps {
+                        echo 'Changes detected in Product Service. Starting Tests...'
+                        sh 'mvn test -pl product -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Cart Service') {
+                    when { changeset "cart/**" }
+                    steps {
+                        echo 'Changes detected in Cart Service. Starting Tests...'
+                        sh 'mvn test -pl cart -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Rating Service') {
+                    when { changeset "rating/**" }
+                    steps {
+                        echo 'Changes detected in Rating Service. Starting Tests...'
+                        sh 'mvn test -pl rating -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Tax Service') {
+                    when { changeset "tax/**" }
+                    steps {
+                        echo 'Changes detected in Tax Service. Starting Tests...'
+                        sh 'mvn test -pl tax -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Webhook Service') {
+                    when { changeset "webhook/**" }
+                    steps {
+                        echo 'Changes detected in Webhook Service. Starting Tests...'
+                        sh 'mvn test -pl webhook -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Promotion Service') {
+                    when { changeset "promotion/**" }
+                    steps {
+                        echo 'Changes detected in Promotion Service. Starting Tests...'
+                        sh 'mvn test -pl promotion -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Location Service') {
+                    when { changeset "location/**" }
+                    steps {
+                        echo 'Changes detected in Location Service. Starting Tests...'
+                        sh 'mvn test -pl location -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Inventory Service') {
+                    when { changeset "inventory/**" }
+                    steps {
+                        echo 'Changes detected in Inventory Service. Starting Tests...'
+                        sh 'mvn test -pl inventory -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Backoffice Service') {
+                    when { changeset "backoffice/**" }
+                    steps {
+                        echo 'Changes detected in Backoffice Service. Starting Tests...'
+                        sh 'mvn test -pl backoffice -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Backoffice BFF') {
+                    when { changeset "backoffice-bff/**" }
+                    steps {
+                        echo 'Changes detected in Backoffice BFF. Starting Tests...'
+                        sh 'mvn test -pl backoffice-bff -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Delivery Service') {
+                    when { changeset "delivery/**" }
+                    steps {
+                        echo 'Changes detected in Delivery Service. Starting Tests...'
+                        sh 'mvn test -pl delivery -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Identity Service') {
+                    when { changeset "identity/**" }
+                    steps {
+                        echo 'Changes detected in Identity Service. Starting Tests...'
+                        sh 'mvn test -pl identity -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Payment Service') {
+                    when { changeset "payment/**" }
+                    steps {
+                        echo 'Changes detected in Payment Service. Starting Tests...'
+                        sh 'mvn test -pl payment -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Payment Paypal Service') {
+                    when { changeset "payment-paypal/**" }
+                    steps {
+                        echo 'Changes detected in Payment Paypal Service. Starting Tests...'
+                        sh 'mvn test -pl payment-paypal -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Recommendation Service') {
+                    when { changeset "recommendation/**" }
+                    steps {
+                        echo 'Changes detected in Recommendation Service. Starting Tests...'
+                        sh 'mvn test -pl recommendation -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Sampledata Service') {
+                    when { changeset "sampledata/**" }
+                    steps {
+                        echo 'Changes detected in Sampledata Service. Starting Tests...'
+                        sh 'mvn test -pl sampledata -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Search Service') {
+                    when { changeset "search/**" }
+                    steps {
+                        echo 'Changes detected in Search Service. Starting Tests...'
+                        sh 'mvn test -pl search -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Storefront BFF') {
+                    when { changeset "storefront-bff/**" }
+                    steps {
+                        echo 'Changes detected in Storefront BFF. Starting Tests...'
+                        sh 'mvn test -pl storefront-bff -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Customer Service') {
+                    when { changeset "customer/**" }
+                    steps {
+                        echo 'Changes detected in Customer Service. Starting Tests...'
+                        sh 'mvn test -pl customer -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
+                stage('Test Order Service') {
+                    when { changeset "order/**" }
+                    steps {
+                        echo 'Changes detected in Order Service. Starting Tests...'
+                        sh 'mvn test -pl order -am -Djacoco.line.minimum=0.70'
+                    }
+                }
+
             }
         }
         
-        stage('SonarCloud Analysis - Security & Quality') {
+        stage('SonarCloud Analysis') {
             when {
                 expression { !params.SKIP_SONAR && env.TARGET_SERVICES_LIST != 'root' && !params.SKIP_TESTS }
             }
@@ -264,132 +504,85 @@ pipeline {
             }
         }
         
-        stage('Publish Test & Coverage Reports') {
-            when {
-                expression { !params.SKIP_TESTS }
-            }
-            steps {
-                echo "Publishing test results and coverage reports..."
-                script {
-                    // Publish JUnit test results
-                    junit testResults: '${SERVICE_PATH}/**/target/surefire-reports/*.xml,${SERVICE_PATH}/**/target/failsafe-reports/*.xml',
-                          allowEmptyResults: true,
-                          skipPublishingChecks: true
-                    
-                    // Publish JaCoCo HTML coverage report
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '${SERVICE_PATH}/target/site/jacoco',
-                        reportFiles: 'index.html',
-                        reportName: 'JaCoCo Code Coverage Report'
-                    ])
-                    
-                    echo "Test and coverage reports published successfully"
-                }
-            }
-        }
-        
-        stage('Build Docker Image') {
-            when {
-                expression { 
-                    env.GIT_BRANCH_NAME in ['main', 'master', 'develop'] &&
-                    env.TARGET_SERVICES_LIST != 'common-library' &&
-                    !env.TARGET_SERVICES_LIST.contains('root')
-                }
-            }
+        stage('Build & Push Docker') {
+            when { expression { env.GIT_BRANCH_NAME == 'main' } }
             steps {
                 script {
-                    // Tách danh sách services thành mảng để xử lý từng cái
                     def services = env.TARGET_SERVICES_LIST.split(',')
-                    
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                    passwordVariable: 'REGISTRY_PASSWORD', 
-                                                    usernameVariable: 'REGISTRY_USERNAME')]) {
-                        
-                        // Login một lần duy nhất trước khi vòng lặp bắt đầu
+                                    passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
                         sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
-
                         for (service in services) {
-                            // Chỉ build nếu service có Dockerfile
                             if (fileExists("${service}/Dockerfile")) {
-                                echo "--- Building & Pushing Docker image for: ${service} ---"
-                                
                                 def imageName = service.replace('-', '_')
-                                def imageTag = "${env.REGISTRY_URL}/nashtech-garage/${imageName}"
-                                
-                                sh """
-                                    docker build -t ${imageTag}:${env.BUILD_VERSION} -t ${imageTag}:latest ${service}
-                                    docker push ${imageTag}:${env.BUILD_VERSION}
-                                    docker push ${imageTag}:latest
-                                """
-                            } else {
-                                echo ">>> Skipping ${service}: No Dockerfile found."
+                                sh "docker build -t ${env.REGISTRY_URL}/nashtech-garage/${imageName}:${env.BUILD_VERSION} ${service}"
+                                sh "docker push ${env.REGISTRY_URL}/nashtech-garage/${imageName}:${env.BUILD_VERSION}"
                             }
                         }
-                        
-                        sh "docker logout ${env.REGISTRY_URL}"
                     }
-                }
-            }
-        }
-        
-        stage('Push Docker Image to Registry') {
-            when {
-                expression { 
-                    env.GIT_BRANCH_NAME in ['main', 'master', 'develop'] &&
-                    fileExists("${env.SERVICE_PATH}/Dockerfile") &&
-                    env.TARGET_SERVICE != 'common-library' &&
-                    !env.TARGET_SERVICE.contains('automation')
-                }
-            }
-            steps {
-                echo "Pushing Docker image to registry..."
-                // Sử dụng ID 'docker-hub-credentials' bạn đã tạo trên UI
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                passwordVariable: 'REGISTRY_PASSWORD', 
-                                                usernameVariable: 'REGISTRY_USERNAME')]) {
-                    sh '''
-                        echo "${REGISTRY_PASSWORD}" | docker login -u "${REGISTRY_USERNAME}" --password-stdin ${REGISTRY_URL}
-                        
-                        IMAGE_NAME=$(echo ${TARGET_SERVICE} | tr '-' '_')
-                        
-                        docker push ${REGISTRY_URL}/nashtech-garage/${IMAGE_NAME}:${BUILD_VERSION}
-                        docker push ${REGISTRY_URL}/nashtech-garage/${IMAGE_NAME}:latest
-                        
-                        docker logout ${REGISTRY_URL}
-                    '''
                 }
             }
         }
     }
     
     post {
+        // always {
+        //     junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
+        //     script {
+        //         echo "Archiving artifacts for all affected services..."
+                
+        //         def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
+
+
+        //         // Dùng wildcard ** để gom báo cáo từ mọi module trong project
+        //         archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
+        //                         allowEmptyArchive: true
+                
+        //         // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
+        //         if (env.TARGET_SERVICES_LIST != null)
+        //         {
+        //             def services = env.TARGET_SERVICES_LIST.split(',')
+        //             for (service in services) {
+        //                 def reportPath = "${service}/target/site/jacoco/index.html"
+        //                 if (fileExists(reportPath)) {
+        //                     publishHTML([
+        //                         allowMissing: true,
+        //                         alwaysLinkToLastBuild: true,
+        //                         keepAll: true,
+        //                         reportDir: "${service}/target/site/jacoco",
+        //                         reportFiles: 'index.html',
+        //                         reportName: "JaCoCo Coverage - ${service}"
+        //                     ])
+        //                 }
+        //             }
+        //         }               
+        //     }
+        // }
+
         always {
             script {
-                echo "Archiving artifacts for all affected services..."
+                echo "Đang quét tìm báo cáo JaCoCo trong Workspace..."
+                // Tìm tất cả các thư mục chứa index.html của JaCoCo
+                def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
                 
-                // Dùng wildcard ** để gom báo cáo từ mọi module trong project
-                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
-                                allowEmptyArchive: true
-                
-                // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
-                def services = env.TARGET_SERVICES_LIST.split(',')
-                for (service in services) {
-                    def reportPath = "${service}/target/site/jacoco/index.html"
-                    if (fileExists(reportPath)) {
+                if (jacocoReports) {
+                    jacocoReports.split("\n").each { reportPath ->
+                        // Trích xuất tên service từ đường dẫn (ví dụ: ./cart/target/... -> cart)
+                        def serviceName = reportPath.split('/')[1]
+                        def reportDir = "${serviceName}/target/site/jacoco"
+                        
                         publishHTML([
                             allowMissing: true,
                             alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: "${service}/target/site/jacoco",
+                            reportDir: reportDir,
                             reportFiles: 'index.html',
-                            reportName: "JaCoCo Coverage - ${service}"
+                            reportName: "JaCoCo Coverage - ${serviceName}"
                         ])
                     }
                 }
             }
+            archiveArtifacts artifacts: "**/target/*.json, snyk-report.json, gitleaks-report.json", allowEmptyArchive: true
+            junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
         }
         
         success {
