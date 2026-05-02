@@ -105,16 +105,22 @@ pipeline {
         stage('Snyk Security Scan') {
             steps {
                 script {
-                    // Lấy đường dẫn cài đặt của snyk-cli đã cấu hình trong Global Tool Configuration
-                    def snykHome = tool name: 'snyk-cli', type: 'io.snyk.jenkins.SnykStep$SnykInstallation'
-                    
-                    // Đưa snyk vào PATH và chạy lệnh quét
-                    withEnv(["PATH+SNYK=${snykHome}/bin"]) { 
-                        withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
-                            echo "Scanning for vulnerabilities..."
-                            // Sử dụng --token=$SNYK_TOKEN để xác thực thủ công
-                            sh "snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN || true"
-                        }
+                    echo "Installing Snyk CLI and scanning for vulnerabilities..."
+                    // Sử dụng Secret text đã tạo (biểu tượng tờ giấy có dòng kẻ)
+                    withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                        sh '''
+                            # 1. Cài đặt snyk cục bộ bằng npm (có sẵn trong image Maven)
+                            npm install -g snyk
+                            
+                            # 2. Chạy quét toàn bộ project YAS
+                            # --token=$SNYK_TOKEN dùng để xác thực trực tiếp
+                            # --all-projects giúp quét tất cả pom.xml (Microservices)
+                            # || true để pipeline không bị dừng nếu tìm thấy lỗ hổng (để còn nộp báo cáo)
+                            snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
+                        '''
+                        
+                        // 3. Lưu lại báo cáo để nộp cho giảng viên
+                        archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
                     }
                 }
             }
