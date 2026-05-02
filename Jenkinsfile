@@ -223,7 +223,8 @@ pipeline {
                     //     sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
                     // }
 
-                    sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
+                    //sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
+                    sh "mvn clean verify -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50 -DskipITs"
                 }
             }
             post {
