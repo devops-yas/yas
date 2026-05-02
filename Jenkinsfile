@@ -54,22 +54,39 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    echo "Fetching main branch history for change detection..."
-                    sh "git fetch origin main:remotes/origin/main --quiet"
+                    def affectedServices = []
                     
-                    def changedFiles = sh(
-                        script: "git diff --name-only remotes/origin/main...HEAD", 
-                        returnStdout: true
-                    ).trim()
+                    // 1. Lấy danh sách các file thay đổi trực tiếp từ dữ liệu Build của Jenkins
+                    def changeLogSets = currentBuild.changeSets
+                    for (int i = 0; i < changeLogSets.size(); i++) {
+                        def entries = changeLogSets[i].items
+                        for (int j = 0; j < entries.size(); j++) {
+                            def entry = entries[j]
+                            def files = entry.affectedFiles
+                            for (int k = 0; k < files.size(); k++) {
+                                def file = files[k]
+                                // Lấy tên thư mục cha (tên service)
+                                def pathParts = file.path.split('/')
+                                if (pathParts.size() > 1) {
+                                    def serviceName = pathParts[0]
+                                    // Kiểm tra nếu thư mục đó có pom.xml thì mới coi là service
+                                    if (fileExists("${serviceName}/pom.xml") && serviceName != 'common-library') {
+                                        affectedServices << serviceName
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    affectedServices = affectedServices.unique()
 
-                    if (!changedFiles) {
-                        env.TARGET_SERVICES_LIST = params.SERVICE == 'auto' ? 'common-library' : params.SERVICE
+                    // 2. Kết hợp với tham số SERVICE để quyết định danh sách cuối cùng
+                    if (params.SERVICE != 'auto') {
+                        env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
-                        def affectedServices = folders.findAll { it != 'common-library' && fileExists("${it}/pom.xml") }
                         env.TARGET_SERVICES_LIST = affectedServices ? affectedServices.join(",") : "common-library"
                     }
-                    echo "Affected services for reporting: ${env.TARGET_SERVICES_LIST}"
+                    
+                    echo "Phát hiện các service thay đổi: ${env.TARGET_SERVICES_LIST}"
                 }
             }
         }
