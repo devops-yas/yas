@@ -105,9 +105,19 @@ pipeline {
         stage('Snyk Security Scan') {
             steps {
                 script {
-                    echo "Scanning for vulnerabilities with Snyk..."
-                    // Sử dụng snyk auth $SNYK_TOKEN trước đó hoặc dùng plugin
-                    sh 'snyk test --all-projects --severity-threshold=high || true'
+                    echo "Downloading Snyk Binary and scanning..."
+                    withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                        sh '''
+                            # 1. Tải Snyk binary chính thức từ GitHub
+                            curl https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                            chmod +x ./snyk
+                            
+                            # 2. Chạy quét toàn bộ dự án YAS
+                            ./snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
+                        '''
+                        // Lưu artifact để nộp báo cáo
+                        archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
+                    }
                 }
             }
         }
@@ -213,8 +223,7 @@ pipeline {
                     //     sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
                     // }
 
-                    //sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
-                    sh 'mvn clean verify -pl media -am -Djacoco.line.minimum=0.50 -DskipITs'
+                    sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
                 }
             }
             post {
@@ -355,31 +364,30 @@ pipeline {
             }
         }
     }
+    
     post {
         always {
             script {
                 echo "Archiving artifacts for all affected services..."
                 
-                // ĐÃ SỬA: Thêm đường dẫn quét toàn bộ file HTML của thư mục jacoco
-                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml, **/target/site/jacoco/**/*", allowEmptyArchive: true
+                // Dùng wildcard ** để gom báo cáo từ mọi module trong project
+                archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
+                                allowEmptyArchive: true
                 
-                // ĐÃ SỬA: Ép Jenkins xuất thẳng báo cáo của media ra màn hình
-                def mediaReportPath = "media/target/site/jacoco/index.html"
-                
-                if (fileExists(mediaReportPath)) {
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: "media/target/site/jacoco",
-                        reportFiles: 'index.html',
-                        reportName: "JaCoCo Coverage - media"
-                    ])
-                    echo "Đã tìm thấy và publish báo cáo JaCoCo cho module media!"
-                } else {
-                    // Nếu nó in ra dòng này, tức là code của bạn chưa có bài Unit Test nào, 
-                    // hoặc Test bị lỗi nên JaCoCo không thèm sinh ra file report.
-                    echo "CẢNH BÁO ĐỎ: Không tìm thấy file báo cáo tại ${mediaReportPath}!"
+                // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
+                def services = env.TARGET_SERVICES_LIST.split(',')
+                for (service in services) {
+                    def reportPath = "${service}/target/site/jacoco/index.html"
+                    if (fileExists(reportPath)) {
+                        publishHTML([
+                            allowMissing: true,
+                            alwaysLinkToLastBuild: true,
+                            keepAll: true,
+                            reportDir: "${service}/target/site/jacoco",
+                            reportFiles: 'index.html',
+                            reportName: "JaCoCo Coverage - ${service}"
+                        ])
+                    }
                 }
             }
         }
@@ -388,7 +396,7 @@ pipeline {
             echo "SUCCESS: Pipeline completed successfully!"
             echo "Available Reports:"
             echo "  - Test Results: ${BUILD_URL}testReport/"
-            echo "  - Coverage Report: ${BUILD_URL}JaCoCo_Coverage_-_media/"
+            echo "  - Coverage Report: ${BUILD_URL}JaCoCo_Code_Coverage_Report/"
         }
         
         failure {
