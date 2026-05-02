@@ -54,39 +54,37 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    def affectedServices = []
-                    
-                    // 1. Lấy danh sách các file thay đổi trực tiếp từ dữ liệu Build của Jenkins
+                    def affected = []
                     def changeLogSets = currentBuild.changeSets
+                    
+                    // Quét file thay đổi
                     for (int i = 0; i < changeLogSets.size(); i++) {
                         def entries = changeLogSets[i].items
                         for (int j = 0; j < entries.size(); j++) {
                             def entry = entries[j]
-                            def files = entry.affectedFiles
-                            for (int k = 0; k < files.size(); k++) {
-                                def file = files[k]
-                                // Lấy tên thư mục cha (tên service)
+                            entry.affectedFiles.each { file ->
                                 def pathParts = file.path.split('/')
                                 if (pathParts.size() > 1) {
                                     def serviceName = pathParts[0]
-                                    // Kiểm tra nếu thư mục đó có pom.xml thì mới coi là service
-                                    if (fileExists("${serviceName}/pom.xml") && serviceName != 'common-library') {
-                                        affectedServices << serviceName
-                                    }
+                                    // Dùng try-catch để tránh lỗi fileExists làm crash pipeline
+                                    try {
+                                        if (serviceName != 'common-library' && fileExists("${serviceName}/pom.xml")) {
+                                            affected << serviceName
+                                        }
+                                    } catch (Exception e) { /* Bỏ qua nếu lỗi check file */ }
                                 }
                             }
                         }
                     }
-                    affectedServices = affectedServices.unique()
-
-                    // 2. Kết hợp với tham số SERVICE để quyết định danh sách cuối cùng
+                    
+                    // Gán lại vào env và đảm bảo nó không bao giờ null
+                    def finalResult = affected.unique().join(",")
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        env.TARGET_SERVICES_LIST = affectedServices ? affectedServices.join(",") : "common-library"
+                        env.TARGET_SERVICES_LIST = finalResult ?: "common-library"
                     }
-                    
-                    echo "Phát hiện các service thay đổi: ${env.TARGET_SERVICES_LIST}"
+                    echo "Services detected: ${env.TARGET_SERVICES_LIST}"
                 }
             }
         }
@@ -548,20 +546,23 @@ pipeline {
                                 allowEmptyArchive: true
                 
                 // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
-                def services = env.TARGET_SERVICES_LIST.split(',')
-                for (service in services) {
-                    def reportPath = "${service}/target/site/jacoco/index.html"
-                    if (fileExists(reportPath)) {
-                        publishHTML([
-                            allowMissing: true,
-                            alwaysLinkToLastBuild: true,
-                            keepAll: true,
-                            reportDir: "${service}/target/site/jacoco",
-                            reportFiles: 'index.html',
-                            reportName: "JaCoCo Coverage - ${service}"
-                        ])
+                if (env.TARGET_SERVICES_LIST != null)
+                {
+                    def services = env.TARGET_SERVICES_LIST.split(',')
+                    for (service in services) {
+                        def reportPath = "${service}/target/site/jacoco/index.html"
+                        if (fileExists(reportPath)) {
+                            publishHTML([
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: "${service}/target/site/jacoco",
+                                reportFiles: 'index.html',
+                                reportName: "JaCoCo Coverage - ${service}"
+                            ])
+                        }
                     }
-                }
+                }               
             }
         }
         
