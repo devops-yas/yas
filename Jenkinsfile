@@ -101,6 +101,16 @@ pipeline {
                 echo "  Build Version: ${BUILD_VERSION}"
             }
         }
+
+        stage('Snyk Security Scan') {
+            steps {
+                script {
+                    echo "Scanning for vulnerabilities with Snyk..."
+                    // Sử dụng snyk auth $SNYK_TOKEN trước đó hoặc dùng plugin
+                    sh 'snyk test --all-projects --severity-threshold=high || true'
+                }
+            }
+        }
         
         stage('Gitleaks - Secrets Detection') {
             steps {
@@ -203,8 +213,7 @@ pipeline {
                     //     sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
                     // }
 
-                    //sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
-                    sh "mvn clean verify -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50 -DskipITs"
+                    sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
                 }
             }
             post {
