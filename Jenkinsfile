@@ -1,13 +1,7 @@
 #!/usr/bin/env groovy
 
 pipeline {
-//    agent any
-    agent {
-        docker {
-            image 'maven:3.9-eclipse-temurin-21'
-            args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --network host --privileged --user root'
-        }
-    }
+    agent any
     options {
         timestamps()
         timeout(time: 1, unit: 'HOURS')
@@ -29,8 +23,8 @@ pipeline {
     }
 
     tools {
-        maven 'maven-3.9'
-        jdk 'jdk-21'
+        maven 'Maven 3.9'
+        jdk 'Java 21'
     }
     
     parameters {
