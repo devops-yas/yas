@@ -1,47 +1,24 @@
-<<<<<<< HEAD
-pipeline {
-=======
 #!/usr/bin/env groovy
 
 pipeline {
 //    agent any
->>>>>>> main
     agent {
         docker {
             image 'maven:3.9-eclipse-temurin-21'
             args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --network host --privileged --user root'
         }
     }
-<<<<<<< HEAD
 
-=======
     options {
         timestamps()
         timeout(time: 1, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '20'))
     }
     
->>>>>>> main
     environment {
         MAVEN_OPTS = '-Xmx1g -Xms512m'
         TESTCONTAINERS_CONTAINER_STARTUP_TIMEOUT = '300'
         TESTCONTAINERS_RYUK_DISABLED = 'true'
-<<<<<<< HEAD
-    }
-
-    tools {
-        maven 'maven-3.9' 
-        jdk 'jdk-21'    
-    }
-
-    stages {
-        stage('Snyk Security Scan') {
-            steps {
-                script {
-                    echo "Scanning for vulnerabilities with Snyk..."
-                    // Authenticate using snyk auth $SNYK_TOKEN beforehand or use plugin
-                    sh 'snyk test --all-projects --severity-threshold=high || true'
-=======
         SONAR_TOKEN = credentials('sonarcloud-token')
         SONAR_ORGANIZATION = 'devops-yas'
         SONAR_PROJECT_KEY = 'devops-yas_yas'
@@ -53,8 +30,8 @@ pipeline {
     }
 
     tools {
-        maven 'maven-3.9'
-        jdk 'jdk-21'
+        maven 'maven-3.9' 
+        jdk 'jdk-21'    
     }
     
     parameters {
@@ -72,57 +49,28 @@ pipeline {
     }
     
     stages {
-        stage('Checkout') {
+        stage('Checkout & Detect') {
             steps {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
-            }
-        }
-        
-        stage('Detect Changed Service') {
-            steps {
                 script {
-                    echo "Fetching main branch history..."
-                    // Chiến thuật đúng nhất: Fetch kèm theo ánh xạ nhánh để Git nhận diện được 'main'
+                    echo "Fetching main branch history for change detection..."
                     sh "git fetch origin main:remotes/origin/main --quiet"
-
-                    echo "Detecting changed services..."
-                    // Sử dụng remotes/origin/main để chỉ định chính xác vị trí nhánh vừa fetch
+                    
                     def changedFiles = sh(
                         script: "git diff --name-only remotes/origin/main...HEAD", 
                         returnStdout: true
                     ).trim()
 
                     if (!changedFiles) {
-                        echo "Không tìm thấy file thay đổi so với main. Sử dụng tham số hoặc mặc định 'root'."
-                        env.TARGET_SERVICE = params.SERVICE == 'auto' ? 'root' : params.SERVICE
+                        env.TARGET_SERVICES_LIST = params.SERVICE == 'auto' ? 'common-library' : params.SERVICE
                     } else {
                         def folders = changedFiles.split("\n").collect { it.split("/")[0] }.unique()
-                        echo "Thư mục thay đổi: ${folders}"
-
-                        // Lấy danh sách các service, nối lại bằng dấu phẩy
                         def affectedServices = folders.findAll { it != 'common-library' && fileExists("${it}/pom.xml") }
-
-                        if (affectedServices) {
-                            env.TARGET_SERVICES_LIST = affectedServices.join(",") 
-                            // Ví dụ: "cart,product,order"
-                        } else {
-                            env.TARGET_SERVICES_LIST = "common-library"
-                        }
-
-                        echo "Affected services: ${env.TARGET_SERVICES_LIST}"
-                    }                       
+                        env.TARGET_SERVICES_LIST = affectedServices ? affectedServices.join(",") : "common-library"
+                    }
+                    echo "Affected services for reporting: ${env.TARGET_SERVICES_LIST}"
                 }
-            }
-        }
-        
-        stage('Initialize') {
-            steps {
-                echo "Build Configuration:"
-                echo "  Service: ${env.TARGET_SERVICE}"
-                echo "  Branch: ${GIT_BRANCH_NAME}"
-                echo "  Commit: ${GIT_COMMIT_SHORT}"
-                echo "  Build Version: ${BUILD_VERSION}"
             }
         }
 
@@ -142,7 +90,6 @@ pipeline {
                         // Lưu artifact để nộp báo cáo
                         archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
                     }
->>>>>>> main
                 }
             }
         }
@@ -150,39 +97,24 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-<<<<<<< HEAD
                     // echo "Clean up Docker before starting to avoid port conflicts..."
-=======
                     // echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
->>>>>>> main
                     // sh 'docker system prune -f'
 
                     echo "Running pre-installed Gitleaks for secrets detection..."
                     sh '''
-<<<<<<< HEAD
                         # Run gitleaks detect. 
                         # Use || true so the script doesn't stop immediately when a secret is found, 
                         # allowing us to handle reporting logic below.
-=======
-                        # Chạy gitleaks detect. 
-                        # Dùng || true để script không dừng ngay lập tức khi tìm thấy secret, 
-                        # giúp chúng ta có thể xử lý logic báo cáo bên dưới.
->>>>>>> main
                         gitleaks detect --source . \
                         --config gitleaks.toml \
                         --report-format json \
                         --report-path gitleaks-report.json \
                         --verbose || true
                         
-<<<<<<< HEAD
-                        # Check if report file exists
-                        if [ -f "gitleaks-report.json" ]; then
-                            # -i makes search case-insensitive (catches both critical and CRITICAL)
-=======
                         # Kiểm tra nếu file báo cáo tồn tại
                         if [ -f "gitleaks-report.json" ]; then
                             # -i giúp tìm không phân biệt hoa thường (bắt được cả critical và CRITICAL)
->>>>>>> main
                             CRITICAL=$(grep -ic '"severity":"critical"' gitleaks-report.json || echo 0)
                             
                             if [ "$CRITICAL" -gt 0 ]; then
@@ -190,11 +122,7 @@ pipeline {
                                 echo "ERROR: Found $CRITICAL CRITICAL secrets in your code!"
                                 echo "Please check gitleaks-report.json in Build Artifacts."
                                 echo "-------------------------------------------------------"
-<<<<<<< HEAD
-                                # cat gitleaks-report.json # Only cat if file is small, large files will clutter logs
-=======
                                 # cat gitleaks-report.json # Chỉ nên cat nếu file nhỏ, nếu lớn sẽ làm rối log
->>>>>>> main
                                 exit 1
                             fi
                         fi
@@ -203,7 +131,6 @@ pipeline {
                 }
             }
         }
-<<<<<<< HEAD
 
         stage('Monorepo Build') {
             parallel {
@@ -379,14 +306,14 @@ pipeline {
             }
         }
 
-        stage('Monorepo Test') {
+        stage('Monorepo Test & Coverage') {
             parallel {
 
                 stage('Test Media Service') {
                     when { changeset "media/**" }
                     steps {
                         echo 'Changes detected in Media Service. Starting Tests...'
-                        sh 'mvn test -pl media -am'
+                        sh 'mvn test -pl media -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -394,7 +321,7 @@ pipeline {
                     when { changeset "product/**" }
                     steps {
                         echo 'Changes detected in Product Service. Starting Tests...'
-                        sh 'mvn test -pl product -am'
+                        sh 'mvn test -pl product -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -402,7 +329,7 @@ pipeline {
                     when { changeset "cart/**" }
                     steps {
                         echo 'Changes detected in Cart Service. Starting Tests...'
-                        sh 'mvn test -pl cart -am'
+                        sh 'mvn test -pl cart -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -410,7 +337,7 @@ pipeline {
                     when { changeset "rating/**" }
                     steps {
                         echo 'Changes detected in Rating Service. Starting Tests...'
-                        sh 'mvn test -pl rating -am'
+                        sh 'mvn test -pl rating -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -418,7 +345,7 @@ pipeline {
                     when { changeset "tax/**" }
                     steps {
                         echo 'Changes detected in Tax Service. Starting Tests...'
-                        sh 'mvn test -pl tax -am'
+                        sh 'mvn test -pl tax -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -426,7 +353,7 @@ pipeline {
                     when { changeset "webhook/**" }
                     steps {
                         echo 'Changes detected in Webhook Service. Starting Tests...'
-                        sh 'mvn test -pl webhook -am'
+                        sh 'mvn test -pl webhook -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -434,7 +361,7 @@ pipeline {
                     when { changeset "promotion/**" }
                     steps {
                         echo 'Changes detected in Promotion Service. Starting Tests...'
-                        sh 'mvn test -pl promotion -am'
+                        sh 'mvn test -pl promotion -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -442,7 +369,7 @@ pipeline {
                     when { changeset "location/**" }
                     steps {
                         echo 'Changes detected in Location Service. Starting Tests...'
-                        sh 'mvn test -pl location -am'
+                        sh 'mvn test -pl location -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -450,7 +377,7 @@ pipeline {
                     when { changeset "inventory/**" }
                     steps {
                         echo 'Changes detected in Inventory Service. Starting Tests...'
-                        sh 'mvn test -pl inventory -am'
+                        sh 'mvn test -pl inventory -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -458,7 +385,7 @@ pipeline {
                     when { changeset "backoffice/**" }
                     steps {
                         echo 'Changes detected in Backoffice Service. Starting Tests...'
-                        sh 'mvn test -pl backoffice -am'
+                        sh 'mvn test -pl backoffice -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -466,7 +393,7 @@ pipeline {
                     when { changeset "backoffice-bff/**" }
                     steps {
                         echo 'Changes detected in Backoffice BFF. Starting Tests...'
-                        sh 'mvn test -pl backoffice-bff -am'
+                        sh 'mvn test -pl backoffice-bff -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -474,7 +401,7 @@ pipeline {
                     when { changeset "delivery/**" }
                     steps {
                         echo 'Changes detected in Delivery Service. Starting Tests...'
-                        sh 'mvn test -pl delivery -am'
+                        sh 'mvn test -pl delivery -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -482,7 +409,7 @@ pipeline {
                     when { changeset "identity/**" }
                     steps {
                         echo 'Changes detected in Identity Service. Starting Tests...'
-                        sh 'mvn test -pl identity -am'
+                        sh 'mvn test -pl identity -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -490,7 +417,7 @@ pipeline {
                     when { changeset "payment/**" }
                     steps {
                         echo 'Changes detected in Payment Service. Starting Tests...'
-                        sh 'mvn test -pl payment -am'
+                        sh 'mvn test -pl payment -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -498,7 +425,7 @@ pipeline {
                     when { changeset "payment-paypal/**" }
                     steps {
                         echo 'Changes detected in Payment Paypal Service. Starting Tests...'
-                        sh 'mvn test -pl payment-paypal -am'
+                        sh 'mvn test -pl payment-paypal -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -506,7 +433,7 @@ pipeline {
                     when { changeset "recommendation/**" }
                     steps {
                         echo 'Changes detected in Recommendation Service. Starting Tests...'
-                        sh 'mvn test -pl recommendation -am'
+                        sh 'mvn test -pl recommendation -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -514,7 +441,7 @@ pipeline {
                     when { changeset "sampledata/**" }
                     steps {
                         echo 'Changes detected in Sampledata Service. Starting Tests...'
-                        sh 'mvn test -pl sampledata -am'
+                        sh 'mvn test -pl sampledata -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -522,7 +449,7 @@ pipeline {
                     when { changeset "search/**" }
                     steps {
                         echo 'Changes detected in Search Service. Starting Tests...'
-                        sh 'mvn test -pl search -am'
+                        sh 'mvn test -pl search -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -530,7 +457,7 @@ pipeline {
                     when { changeset "storefront-bff/**" }
                     steps {
                         echo 'Changes detected in Storefront BFF. Starting Tests...'
-                        sh 'mvn test -pl storefront-bff -am'
+                        sh 'mvn test -pl storefront-bff -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -538,7 +465,7 @@ pipeline {
                     when { changeset "customer/**" }
                     steps {
                         echo 'Changes detected in Customer Service. Starting Tests...'
-                        sh 'mvn test -pl customer -am'
+                        sh 'mvn test -pl customer -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
@@ -546,109 +473,14 @@ pipeline {
                     when { changeset "order/**" }
                     steps {
                         echo 'Changes detected in Order Service. Starting Tests...'
-                        sh 'mvn test -pl order -am'
+                        sh 'mvn test -pl order -am -Djacoco.line.minimum=0.70'
                     }
                 }
 
             }
         }
-
-        stage('Code Quality: SonarQube') {
-            steps {
-                echo 'Running SonarQube analysis...'
-                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                    withCredentials([string(credentialsId: 'sonarcloud-token', variable: 'SONAR_TOKEN')]) {
-                        sh 'mvn compile sonar:sonar -Dsonar.projectKey=devops-yas_yas -Dsonar.organization=devops-yas -Dsonar.host.url=https://sonarcloud.io -Dsonar.token=${SONAR_TOKEN} -DskipTests'
-                    }
-=======
         
-        stage('Build - Maven Clean Install') {
-            steps {
-                echo "Building project from root to resolve variables..."
-                sh '''
-                    if [ "$TARGET_SERVICE" = "root" ]; then
-                        mvn clean install -DskipTests -Dmaven.javadoc.skip=true
-                    else
-                        # Dùng $TARGET_SERVICE (cú pháp shell) để an toàn nhất
-                        mvn clean install -pl common-library,$TARGET_SERVICE -am -DskipTests \
-                            -Dmaven.javadoc.skip=true \
-                            -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN
-                    fi
-                '''
-            }
-        }
-        
-        stage('Test Phase - Unit Tests') {
-            when {
-                expression { !params.SKIP_TESTS }
-            }
-            steps {
-                echo "Running tests for ${env.TARGET_SERVICES_LIST}..."
-                script {
-                    echo "--- Running Unit Tests for ${env.TARGET_SERVICES_LIST} ---"
-                    script {
-                        def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN -V"
-                        sh "mvn test -pl ${env.TARGET_SERVICES_LIST} -am ${commonFlags} -Dit.enabled=false -DskipITs"
-                    }
-                   
-                }
-            }
-            post {           
-                always {
-                    script {
-                        echo "Collecting test results..."
-                        withEnv(['CHECKS_SKIP_PUBLISH=true']) {
-                            junit testResults: "**/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
-                                allowEmptyResults: true, 
-                                skipPublishingChecks: true
-                        }
-                    }
-                }
-            }
-        }
-        
-        stage('Code Coverage Validation (JaCoCo 70% Threshold)') {
-            when { 
-                expression { !params.SKIP_TESTS && env.TARGET_SERVICES_LIST != 'root' } 
-            }
-            steps {
-                script {
-                    def commonFlags = "-Dmaven.javadoc.skip=true -Dorg.slf4j.simpleLogger.defaultLogLevel=WARN"
-                    
-                    // if (!params.SKIP_IT) {
-                    //     echo "--- Running Integration Tests & Checking 70% Threshold for ${env.TARGET_SERVICES_LIST} ---"
-                    //     // mvn verify sẽ: chạy IT -> gộp kết quả với UT -> chạy jacoco:check (đã cấu hình trong POM)
-                    //     // -DskipUnitTests=true để không chạy lại các bài Unit Test đã chạy ở stage trước
-                    //     sh "mvn verify -pl ${env.TARGET_SERVICES_LIST} -am -DskipUnitTests=true -Dit.enabled=true ${commonFlags}"
-                    // } else {
-                    //     echo "--- Skipping IT, only validating coverage from Unit Tests ---"
-                    //     // Nếu người dùng chọn skip IT, ta vẫn phải check xem UT có đủ 70% không
-                    //     sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
-                    // }
-
-                    sh "mvn jacoco:check -pl ${env.TARGET_SERVICES_LIST} -am -Djacoco.line.minimum=0.50"
-                }
-            }
-            post {
-                // always {
-                //     echo "Collecting integration test results..."
-                //     junit testResults: "**/target/failsafe-reports/*.xml", allowEmptyResults: true, skipPublishingChecks: true
-                // }
-
-                always {
-                    script {
-                        echo "Collecting test results..."
-                        withEnv(['CHECKS_SKIP_PUBLISH=true']) {
-                            junit testResults: "**/target/failsafe-reports/*.xml", 
-                                allowEmptyResults: true, 
-                                skipPublishingChecks: true
-                        }
-                    }
-                }
-            }
-        }
-        
-        stage('SonarCloud Analysis - Security & Quality') {
+        stage('SonarCloud Analysis') {
             when {
                 expression { !params.SKIP_SONAR && env.TARGET_SERVICES_LIST != 'root' && !params.SKIP_TESTS }
             }
@@ -667,103 +499,22 @@ pipeline {
             }
         }
         
-        stage('Publish Test & Coverage Reports') {
-            when {
-                expression { !params.SKIP_TESTS }
-            }
-            steps {
-                echo "Publishing test results and coverage reports..."
-                script {
-                    // Publish JUnit test results
-                    junit testResults: '${SERVICE_PATH}/**/target/surefire-reports/*.xml,${SERVICE_PATH}/**/target/failsafe-reports/*.xml',
-                          allowEmptyResults: true,
-                          skipPublishingChecks: true
-                    
-                    // Publish JaCoCo HTML coverage report
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '${SERVICE_PATH}/target/site/jacoco',
-                        reportFiles: 'index.html',
-                        reportName: 'JaCoCo Code Coverage Report'
-                    ])
-                    
-                    echo "Test and coverage reports published successfully"
-                }
-            }
-        }
-        
-        stage('Build Docker Image') {
-            when {
-                expression { 
-                    env.GIT_BRANCH_NAME in ['main', 'master', 'develop'] &&
-                    env.TARGET_SERVICES_LIST != 'common-library' &&
-                    !env.TARGET_SERVICES_LIST.contains('root')
-                }
-            }
+        stage('Build & Push Docker') {
+            when { expression { env.GIT_BRANCH_NAME == 'main' } }
             steps {
                 script {
-                    // Tách danh sách services thành mảng để xử lý từng cái
                     def services = env.TARGET_SERVICES_LIST.split(',')
-                    
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                    passwordVariable: 'REGISTRY_PASSWORD', 
-                                                    usernameVariable: 'REGISTRY_USERNAME')]) {
-                        
-                        // Login một lần duy nhất trước khi vòng lặp bắt đầu
+                                    passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
                         sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
-
                         for (service in services) {
-                            // Chỉ build nếu service có Dockerfile
                             if (fileExists("${service}/Dockerfile")) {
-                                echo "--- Building & Pushing Docker image for: ${service} ---"
-                                
                                 def imageName = service.replace('-', '_')
-                                def imageTag = "${env.REGISTRY_URL}/nashtech-garage/${imageName}"
-                                
-                                sh """
-                                    docker build -t ${imageTag}:${env.BUILD_VERSION} -t ${imageTag}:latest ${service}
-                                    docker push ${imageTag}:${env.BUILD_VERSION}
-                                    docker push ${imageTag}:latest
-                                """
-                            } else {
-                                echo ">>> Skipping ${service}: No Dockerfile found."
+                                sh "docker build -t ${env.REGISTRY_URL}/nashtech-garage/${imageName}:${env.BUILD_VERSION} ${service}"
+                                sh "docker push ${env.REGISTRY_URL}/nashtech-garage/${imageName}:${env.BUILD_VERSION}"
                             }
                         }
-                        
-                        sh "docker logout ${env.REGISTRY_URL}"
                     }
-                }
-            }
-        }
-        
-        stage('Push Docker Image to Registry') {
-            when {
-                expression { 
-                    env.GIT_BRANCH_NAME in ['main', 'master', 'develop'] &&
-                    fileExists("${env.SERVICE_PATH}/Dockerfile") &&
-                    env.TARGET_SERVICE != 'common-library' &&
-                    !env.TARGET_SERVICE.contains('automation')
-                }
-            }
-            steps {
-                echo "Pushing Docker image to registry..."
-                // Sử dụng ID 'docker-hub-credentials' bạn đã tạo trên UI
-                withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
-                                                passwordVariable: 'REGISTRY_PASSWORD', 
-                                                usernameVariable: 'REGISTRY_USERNAME')]) {
-                    sh '''
-                        echo "${REGISTRY_PASSWORD}" | docker login -u "${REGISTRY_USERNAME}" --password-stdin ${REGISTRY_URL}
-                        
-                        IMAGE_NAME=$(echo ${TARGET_SERVICE} | tr '-' '_')
-                        
-                        docker push ${REGISTRY_URL}/nashtech-garage/${IMAGE_NAME}:${BUILD_VERSION}
-                        docker push ${REGISTRY_URL}/nashtech-garage/${IMAGE_NAME}:latest
-                        
-                        docker logout ${REGISTRY_URL}
-                    '''
->>>>>>> main
                 }
             }
         }
@@ -771,9 +522,7 @@ pipeline {
     
     post {
         always {
-<<<<<<< HEAD
             junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
-=======
             script {
                 echo "Archiving artifacts for all affected services..."
                 
@@ -813,7 +562,6 @@ pipeline {
         
         unstable {
             echo "WARNING: Pipeline is unstable - review warnings above"
->>>>>>> main
         }
     }
 }
