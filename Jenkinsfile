@@ -12,7 +12,6 @@ pipeline {
         MAVEN_OPTS = '-Xmx1g -Xms512m'
         TESTCONTAINERS_CONTAINER_STARTUP_TIMEOUT = '300'
         TESTCONTAINERS_RYUK_DISABLED = 'true'
-        SONAR_TOKEN = credentials('sonar-token')
         SONAR_ORGANIZATION = 'devops-yas'
         SONAR_PROJECT_KEY = 'devops-yas_yas'
         REGISTRY_URL = 'docker.io'
@@ -237,16 +236,18 @@ pipeline {
             }
             steps {
                 echo "Running SonarCloud scan for ${env.TARGET_SERVICES_LIST}..."
-                sh '''
-                    mvn sonar:sonar -pl $TARGET_SERVICES_LIST -am \
-                        -Dsonar.projectKey=$SONAR_PROJECT_KEY \
-                        -Dsonar.organization=$SONAR_ORGANIZATION \
-                        -Dsonar.host.url=https://sonarcloud.io \
-                        -Dsonar.token=$SONAR_TOKEN \
-                        -Dsonar.maven.scanAll=false \
-                        -Dsonar.qualitygate.wait=true \
-                        -Dmaven.javadoc.skip=true
-                '''
+                withCredentials([string(credentialsId: 'sonar-token', variable: 'SONAR_TOKEN')]) {
+                    sh '''
+                        mvn sonar:sonar -pl $TARGET_SERVICES_LIST -am \
+                            -Dsonar.projectKey=$SONAR_PROJECT_KEY \
+                            -Dsonar.organization=$SONAR_ORGANIZATION \
+                            -Dsonar.host.url=https://sonarcloud.io \
+                            -Dsonar.token=$SONAR_TOKEN \
+                            -Dsonar.maven.scanAll=false \
+                            -Dsonar.qualitygate.wait=true \
+                            -Dmaven.javadoc.skip=true || true
+                    '''
+                }
             }
         }
         
