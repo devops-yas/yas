@@ -271,22 +271,21 @@ pipeline {
             steps {
                 echo "Publishing test results and coverage reports..."
                 script {
-                    // Publish JUnit test results
-                    junit testResults: '${SERVICE_PATH}/**/target/surefire-reports/*.xml,${SERVICE_PATH}/**/target/failsafe-reports/*.xml',
-                          allowEmptyResults: true,
-                          skipPublishingChecks: true
-                    
-                    // Publish JaCoCo HTML coverage report
-                    publishHTML([
-                        allowMissing: true,
-                        alwaysLinkToLastBuild: true,
-                        keepAll: true,
-                        reportDir: '${SERVICE_PATH}/target/site/jacoco',
-                        reportFiles: 'index.html',
-                        reportName: 'JaCoCo Code Coverage Report'
-                    ])
-                    
-                    echo "Test and coverage reports published successfully"
+                    def services = env.TARGET_SERVICES_LIST.split(',')
+                    for (service in services) {
+                        // Kiểm tra xem folder report có tồn tại không trước khi publish
+                        def reportDir = "${service}/target/site/jacoco"
+                        if (fileExists(reportDir)) {
+                            publishHTML([
+                                allowMissing: true,
+                                alwaysLinkToLastBuild: true,
+                                keepAll: true,
+                                reportDir: reportDir,
+                                reportFiles: 'index.html',
+                                reportName: "JaCoCo - ${service}" // Phân biệt report cho từng service
+                            ])
+                        }
+                    }
                 }
             }
         }
