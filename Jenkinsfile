@@ -104,12 +104,19 @@ pipeline {
 
         stage('Snyk Security Scan') {
             steps {
-                snykSecurity(
-                        snykInstallation: 'snyk-cli',
-                        snykTokenId: 'snyk-token', // ID Credential bạn đã tạo ở bước trước
-                        failOnIssues: false, // Để false để pipeline không bị dừng ngay nếu tìm thấy lỗi (giúp xem được report)
-                        additionalArguments: '--all-projects --severity-threshold=high'
-                    )
+                script {
+                    // Lấy đường dẫn cài đặt của snyk-cli đã cấu hình trong Global Tool Configuration
+                    def snykHome = tool name: 'snyk-cli', type: 'io.snyk.jenkins.SnykStep$SnykInstallation'
+                    
+                    // Đưa snyk vào PATH và chạy lệnh quét
+                    withEnv(["PATH+SNYK=${snykHome}/bin"]) { 
+                        withCredentials([string(credentialsId: 'snyk-token', variable: 'SNYK_TOKEN')]) {
+                            echo "Scanning for vulnerabilities..."
+                            // Sử dụng --token=$SNYK_TOKEN để xác thực thủ công
+                            sh "snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN || true"
+                        }
+                    }
+                }
             }
         }
         
