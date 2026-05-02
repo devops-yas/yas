@@ -22,7 +22,7 @@ pipeline {
             steps {
                 script {
                     echo "Scanning for vulnerabilities with Snyk..."
-                    // Sử dụng snyk auth $SNYK_TOKEN trước đó hoặc dùng plugin
+                    // Authenticate using snyk auth $SNYK_TOKEN beforehand or use plugin
                     sh 'snyk test --all-projects --severity-threshold=high || true'
                 }
             }
@@ -31,23 +31,23 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-                    // echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
+                    // echo "Clean up Docker before starting to avoid port conflicts..."
                     // sh 'docker system prune -f'
 
                     echo "Running pre-installed Gitleaks for secrets detection..."
                     sh '''
-                        # Chạy gitleaks detect. 
-                        # Dùng || true để script không dừng ngay lập tức khi tìm thấy secret, 
-                        # giúp chúng ta có thể xử lý logic báo cáo bên dưới.
+                        # Run gitleaks detect. 
+                        # Use || true so the script doesn't stop immediately when a secret is found, 
+                        # allowing us to handle reporting logic below.
                         gitleaks detect --source . \
                         --config gitleaks.toml \
                         --report-format json \
                         --report-path gitleaks-report.json \
                         --verbose || true
                         
-                        # Kiểm tra nếu file báo cáo tồn tại
+                        # Check if report file exists
                         if [ -f "gitleaks-report.json" ]; then
-                            # -i giúp tìm không phân biệt hoa thường (bắt được cả critical và CRITICAL)
+                            # -i makes search case-insensitive (catches both critical and CRITICAL)
                             CRITICAL=$(grep -ic '"severity":"critical"' gitleaks-report.json || echo 0)
                             
                             if [ "$CRITICAL" -gt 0 ]; then
@@ -55,7 +55,7 @@ pipeline {
                                 echo "ERROR: Found $CRITICAL CRITICAL secrets in your code!"
                                 echo "Please check gitleaks-report.json in Build Artifacts."
                                 echo "-------------------------------------------------------"
-                                # cat gitleaks-report.json # Chỉ nên cat nếu file nhỏ, nếu lớn sẽ làm rối log
+                                # cat gitleaks-report.json # Only cat if file is small, large files will clutter logs
                                 exit 1
                             fi
                         fi
