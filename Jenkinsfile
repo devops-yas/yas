@@ -65,174 +65,348 @@ pipeline {
             }
         }
 
-        stage('Monorepo Build & Test') {
+        stage('Monorepo Build') {
             parallel {
 
-                stage('Media Service') {
+                stage('Build Media Service') {
                     when { changeset "media/**" }
                     steps {
-                        echo 'Changes detected in Media Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl media -am'
+                        echo 'Changes detected in Media Service. Starting Build...'
+                        sh 'mvn clean install -pl media -am -DskipTests'
                     }
                 }
 
-                stage('Product Service') {
+                stage('Build Product Service') {
                     when { changeset "product/**" }
                     steps {
-                        echo 'Changes detected in Product Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl product -am'
+                        echo 'Changes detected in Product Service. Starting Build...'
+                        sh 'mvn clean install -pl product -am -DskipTests'
                     }
                 }
 
-                stage('Cart Service') {
+                stage('Build Cart Service') {
                     when { changeset "cart/**" }
                     steps {
-                        echo 'Changes detected in Cart Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl cart -am'
+                        echo 'Changes detected in Cart Service. Starting Build...'
+                        sh 'mvn clean install -pl cart -am -DskipTests'
                     }
                 }
 
-                stage('Rating Service') {
+                stage('Build Rating Service') {
                     when { changeset "rating/**" }
                     steps {
-                        echo 'Changes detected in Rating Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl rating -am'
+                        echo 'Changes detected in Rating Service. Starting Build...'
+                        sh 'mvn clean install -pl rating -am -DskipTests'
                     }
                 }
 
-                stage('Tax Service') {
+                stage('Build Tax Service') {
                     when { changeset "tax/**" }
                     steps {
-                        echo 'Changes detected in Tax Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl tax -am'
+                        echo 'Changes detected in Tax Service. Starting Build...'
+                        sh 'mvn clean install -pl tax -am -DskipTests'
                     }
                 }
 
-                stage('Webhook Service') {
+                stage('Build Webhook Service') {
                     when { changeset "webhook/**" }
                     steps {
-                        echo 'Changes detected in Webhook Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl webhook -am'
+                        echo 'Changes detected in Webhook Service. Starting Build...'
+                        sh 'mvn clean install -pl webhook -am -DskipTests'
                     }
                 }
 
-                stage('Promotion Service') {
+                stage('Build Promotion Service') {
                     when { changeset "promotion/**" }
                     steps {
-                        echo 'Changes detected in Promotion Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl promotion -am'
+                        echo 'Changes detected in Promotion Service. Starting Build...'
+                        sh 'mvn clean install -pl promotion -am -DskipTests'
                     }
                 }
 
-                stage('Location Service') {
+                stage('Build Location Service') {
                     when { changeset "location/**" }
                     steps {
-                        echo 'Changes detected in Location Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl location -am'
+                        echo 'Changes detected in Location Service. Starting Build...'
+                        sh 'mvn clean install -pl location -am -DskipTests'
                     }
                 }
 
-                stage('Inventory Service') {
+                stage('Build Inventory Service') {
                     when { changeset "inventory/**" }
                     steps {
-                        echo 'Changes detected in Inventory Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl inventory -am'
+                        echo 'Changes detected in Inventory Service. Starting Build...'
+                        sh 'mvn clean install -pl inventory -am -DskipTests'
                     }
                 }
 
-                stage('Backoffice Service') {
+                stage('Build Backoffice Service') {
                     when { changeset "backoffice/**" }
                     steps {
-                        echo 'Changes detected in Backoffice Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl backoffice -am'
+                        echo 'Changes detected in Backoffice Service. Starting Build...'
+                        sh 'mvn clean install -pl backoffice -am -DskipTests'
                     }
                 }
 
-                stage('Backoffice BFF') {
+                stage('Build Backoffice BFF') {
                     when { changeset "backoffice-bff/**" }
                     steps {
-                        echo 'Changes detected in Backoffice BFF. Starting Build & Test...'
-                        sh 'mvn clean test -pl backoffice-bff -am'
+                        echo 'Changes detected in Backoffice BFF. Starting Build...'
+                        sh 'mvn clean install -pl backoffice-bff -am -DskipTests'
                     }
                 }
 
-                stage('Delivery Service') {
+                stage('Build Delivery Service') {
                     when { changeset "delivery/**" }
                     steps {
-                        echo 'Changes detected in Delivery Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl delivery -am'
+                        echo 'Changes detected in Delivery Service. Starting Build...'
+                        sh 'mvn clean install -pl delivery -am -DskipTests'
                     }
                 }
 
-                stage('Identity Service') {
+                stage('Build Identity Service') {
                     when { changeset "identity/**" }
                     steps {
-                        echo 'Changes detected in Identity Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl identity -am'
+                        echo 'Changes detected in Identity Service. Starting Build...'
+                        sh 'mvn clean install -pl identity -am -DskipTests'
                     }
                 }
 
-                stage('Payment Service') {
+                stage('Build Payment Service') {
                     when { changeset "payment/**" }
                     steps {
-                        echo 'Changes detected in Payment Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl payment -am'
+                        echo 'Changes detected in Payment Service. Starting Build...'
+                        sh 'mvn clean install -pl payment -am -DskipTests'
                     }
                 }
 
-                stage('Payment Paypal Service') {
+                stage('Build Payment Paypal Service') {
                     when { changeset "payment-paypal/**" }
                     steps {
-                        echo 'Changes detected in Payment Paypal Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl payment-paypal -am'
+                        echo 'Changes detected in Payment Paypal Service. Starting Build...'
+                        sh 'mvn clean install -pl payment-paypal -am -DskipTests'
                     }
                 }
 
-                stage('Recommendation Service') {
+                stage('Build Recommendation Service') {
                     when { changeset "recommendation/**" }
                     steps {
-                        echo 'Changes detected in Recommendation Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl recommendation -am'
+                        echo 'Changes detected in Recommendation Service. Starting Build...'
+                        sh 'mvn clean install -pl recommendation -am -DskipTests'
                     }
                 }
 
-                stage('Sampledata Service') {
+                stage('Build Sampledata Service') {
                     when { changeset "sampledata/**" }
                     steps {
-                        echo 'Changes detected in Sampledata Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl sampledata -am'
+                        echo 'Changes detected in Sampledata Service. Starting Build...'
+                        sh 'mvn clean install -pl sampledata -am -DskipTests'
                     }
                 }
 
-                stage('Search Service') {
+                stage('Build Search Service') {
                     when { changeset "search/**" }
                     steps {
-                        echo 'Changes detected in Search Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl search -am'
+                        echo 'Changes detected in Search Service. Starting Build...'
+                        sh 'mvn clean install -pl search -am -DskipTests'
                     }
                 }
 
-                stage('Storefront BFF') {
+                stage('Build Storefront BFF') {
                     when { changeset "storefront-bff/**" }
                     steps {
-                        echo 'Changes detected in Storefront BFF. Starting Build & Test...'
-                        sh 'mvn clean test -pl storefront-bff -am'
+                        echo 'Changes detected in Storefront BFF. Starting Build...'
+                        sh 'mvn clean install -pl storefront-bff -am -DskipTests'
                     }
                 }
 
-                stage('Customer Service') {
+                stage('Build Customer Service') {
                     when { changeset "customer/**" }
                     steps {
-                        echo 'Changes detected in Customer Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl customer -am'
+                        echo 'Changes detected in Customer Service. Starting Build...'
+                        sh 'mvn clean install -pl customer -am -DskipTests'
                     }
                 }
 
-                stage('Order Service') {
+                stage('Build Order Service') {
                     when { changeset "order/**" }
                     steps {
-                        echo 'Changes detected in Order Service. Starting Build & Test...'
-                        sh 'mvn clean test -pl order -am'
+                        echo 'Changes detected in Order Service. Starting Build...'
+                        sh 'mvn clean install -pl order -am -DskipTests'
+                    }
+                }
+
+            }
+        }
+
+        stage('Monorepo Test') {
+            parallel {
+
+                stage('Test Media Service') {
+                    when { changeset "media/**" }
+                    steps {
+                        echo 'Changes detected in Media Service. Starting Tests...'
+                        sh 'mvn test -pl media -am'
+                    }
+                }
+
+                stage('Test Product Service') {
+                    when { changeset "product/**" }
+                    steps {
+                        echo 'Changes detected in Product Service. Starting Tests...'
+                        sh 'mvn test -pl product -am'
+                    }
+                }
+
+                stage('Test Cart Service') {
+                    when { changeset "cart/**" }
+                    steps {
+                        echo 'Changes detected in Cart Service. Starting Tests...'
+                        sh 'mvn test -pl cart -am'
+                    }
+                }
+
+                stage('Test Rating Service') {
+                    when { changeset "rating/**" }
+                    steps {
+                        echo 'Changes detected in Rating Service. Starting Tests...'
+                        sh 'mvn test -pl rating -am'
+                    }
+                }
+
+                stage('Test Tax Service') {
+                    when { changeset "tax/**" }
+                    steps {
+                        echo 'Changes detected in Tax Service. Starting Tests...'
+                        sh 'mvn test -pl tax -am'
+                    }
+                }
+
+                stage('Test Webhook Service') {
+                    when { changeset "webhook/**" }
+                    steps {
+                        echo 'Changes detected in Webhook Service. Starting Tests...'
+                        sh 'mvn test -pl webhook -am'
+                    }
+                }
+
+                stage('Test Promotion Service') {
+                    when { changeset "promotion/**" }
+                    steps {
+                        echo 'Changes detected in Promotion Service. Starting Tests...'
+                        sh 'mvn test -pl promotion -am'
+                    }
+                }
+
+                stage('Test Location Service') {
+                    when { changeset "location/**" }
+                    steps {
+                        echo 'Changes detected in Location Service. Starting Tests...'
+                        sh 'mvn test -pl location -am'
+                    }
+                }
+
+                stage('Test Inventory Service') {
+                    when { changeset "inventory/**" }
+                    steps {
+                        echo 'Changes detected in Inventory Service. Starting Tests...'
+                        sh 'mvn test -pl inventory -am'
+                    }
+                }
+
+                stage('Test Backoffice Service') {
+                    when { changeset "backoffice/**" }
+                    steps {
+                        echo 'Changes detected in Backoffice Service. Starting Tests...'
+                        sh 'mvn test -pl backoffice -am'
+                    }
+                }
+
+                stage('Test Backoffice BFF') {
+                    when { changeset "backoffice-bff/**" }
+                    steps {
+                        echo 'Changes detected in Backoffice BFF. Starting Tests...'
+                        sh 'mvn test -pl backoffice-bff -am'
+                    }
+                }
+
+                stage('Test Delivery Service') {
+                    when { changeset "delivery/**" }
+                    steps {
+                        echo 'Changes detected in Delivery Service. Starting Tests...'
+                        sh 'mvn test -pl delivery -am'
+                    }
+                }
+
+                stage('Test Identity Service') {
+                    when { changeset "identity/**" }
+                    steps {
+                        echo 'Changes detected in Identity Service. Starting Tests...'
+                        sh 'mvn test -pl identity -am'
+                    }
+                }
+
+                stage('Test Payment Service') {
+                    when { changeset "payment/**" }
+                    steps {
+                        echo 'Changes detected in Payment Service. Starting Tests...'
+                        sh 'mvn test -pl payment -am'
+                    }
+                }
+
+                stage('Test Payment Paypal Service') {
+                    when { changeset "payment-paypal/**" }
+                    steps {
+                        echo 'Changes detected in Payment Paypal Service. Starting Tests...'
+                        sh 'mvn test -pl payment-paypal -am'
+                    }
+                }
+
+                stage('Test Recommendation Service') {
+                    when { changeset "recommendation/**" }
+                    steps {
+                        echo 'Changes detected in Recommendation Service. Starting Tests...'
+                        sh 'mvn test -pl recommendation -am'
+                    }
+                }
+
+                stage('Test Sampledata Service') {
+                    when { changeset "sampledata/**" }
+                    steps {
+                        echo 'Changes detected in Sampledata Service. Starting Tests...'
+                        sh 'mvn test -pl sampledata -am'
+                    }
+                }
+
+                stage('Test Search Service') {
+                    when { changeset "search/**" }
+                    steps {
+                        echo 'Changes detected in Search Service. Starting Tests...'
+                        sh 'mvn test -pl search -am'
+                    }
+                }
+
+                stage('Test Storefront BFF') {
+                    when { changeset "storefront-bff/**" }
+                    steps {
+                        echo 'Changes detected in Storefront BFF. Starting Tests...'
+                        sh 'mvn test -pl storefront-bff -am'
+                    }
+                }
+
+                stage('Test Customer Service') {
+                    when { changeset "customer/**" }
+                    steps {
+                        echo 'Changes detected in Customer Service. Starting Tests...'
+                        sh 'mvn test -pl customer -am'
+                    }
+                }
+
+                stage('Test Order Service') {
+                    when { changeset "order/**" }
+                    steps {
+                        echo 'Changes detected in Order Service. Starting Tests...'
+                        sh 'mvn test -pl order -am'
                     }
                 }
 
