@@ -147,6 +147,13 @@ pipeline {
             }
         }
 
+        stage('Build Common Library') {
+            steps {
+                // Chỉ clean install thư viện dùng chung trước
+                sh 'mvn clean install -pl common-library -am -DskipTests'
+            }
+        }
+
         stage('Monorepo Build') {
             parallel {
 
@@ -154,7 +161,7 @@ pipeline {
                     when { changeset "media/**" }
                     steps {
                         echo 'Changes detected in Media Service. Starting Build...'
-                        sh 'mvn clean install -pl media -am -DskipTests'
+                        sh 'mvn install -pl media -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -162,7 +169,7 @@ pipeline {
                     when { changeset "product/**" }
                     steps {
                         echo 'Changes detected in Product Service. Starting Build...'
-                        sh 'mvn clean install -pl product -am -DskipTests'
+                        sh 'mvn install -pl product -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -170,7 +177,7 @@ pipeline {
                     when { changeset "cart/**" }
                     steps {
                         echo 'Changes detected in Cart Service. Starting Build...'
-                        sh 'mvn clean install -pl cart -am -DskipTests'
+                        sh 'mvn install -pl cart -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -178,7 +185,7 @@ pipeline {
                     when { changeset "rating/**" }
                     steps {
                         echo 'Changes detected in Rating Service. Starting Build...'
-                        sh 'mvn clean install -pl rating -am -DskipTests'
+                        sh 'mvn install -pl rating -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -186,7 +193,7 @@ pipeline {
                     when { changeset "tax/**" }
                     steps {
                         echo 'Changes detected in Tax Service. Starting Build...'
-                        sh 'mvn clean install -pl tax -am -DskipTests'
+                        sh 'mvn install -pl tax -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -194,7 +201,7 @@ pipeline {
                     when { changeset "webhook/**" }
                     steps {
                         echo 'Changes detected in Webhook Service. Starting Build...'
-                        sh 'mvn clean install -pl webhook -am -DskipTests'
+                        sh 'mvn install -pl webhook -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -202,7 +209,7 @@ pipeline {
                     when { changeset "promotion/**" }
                     steps {
                         echo 'Changes detected in Promotion Service. Starting Build...'
-                        sh 'mvn clean install -pl promotion -am -DskipTests'
+                        sh 'mvn install -pl promotion -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -210,7 +217,7 @@ pipeline {
                     when { changeset "location/**" }
                     steps {
                         echo 'Changes detected in Location Service. Starting Build...'
-                        sh 'mvn clean install -pl location -am -DskipTests'
+                        sh 'mvn install -pl location -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -218,7 +225,7 @@ pipeline {
                     when { changeset "inventory/**" }
                     steps {
                         echo 'Changes detected in Inventory Service. Starting Build...'
-                        sh 'mvn clean install -pl inventory -am -DskipTests'
+                        sh 'mvn install -pl inventory -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -226,7 +233,7 @@ pipeline {
                     when { changeset "backoffice/**" }
                     steps {
                         echo 'Changes detected in Backoffice Service. Starting Build...'
-                        sh 'mvn clean install -pl backoffice -am -DskipTests'
+                        sh 'mvn install -pl backoffice -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -234,7 +241,7 @@ pipeline {
                     when { changeset "backoffice-bff/**" }
                     steps {
                         echo 'Changes detected in Backoffice BFF. Starting Build...'
-                        sh 'mvn clean install -pl backoffice-bff -am -DskipTests'
+                        sh 'mvn install -pl backoffice-bff -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -242,7 +249,7 @@ pipeline {
                     when { changeset "delivery/**" }
                     steps {
                         echo 'Changes detected in Delivery Service. Starting Build...'
-                        sh 'mvn clean install -pl delivery -am -DskipTests'
+                        sh 'mvn install -pl delivery -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -250,7 +257,7 @@ pipeline {
                     when { changeset "identity/**" }
                     steps {
                         echo 'Changes detected in Identity Service. Starting Build...'
-                        sh 'mvn clean install -pl identity -am -DskipTests'
+                        sh 'mvn install -pl identity -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -258,7 +265,7 @@ pipeline {
                     when { changeset "payment/**" }
                     steps {
                         echo 'Changes detected in Payment Service. Starting Build...'
-                        sh 'mvn clean install -pl payment -am -DskipTests'
+                        sh 'mvn install -pl payment -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -266,7 +273,7 @@ pipeline {
                     when { changeset "payment-paypal/**" }
                     steps {
                         echo 'Changes detected in Payment Paypal Service. Starting Build...'
-                        sh 'mvn clean install -pl payment-paypal -am -DskipTests'
+                        sh 'mvn install -pl payment-paypal -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -274,7 +281,7 @@ pipeline {
                     when { changeset "recommendation/**" }
                     steps {
                         echo 'Changes detected in Recommendation Service. Starting Build...'
-                        sh 'mvn clean install -pl recommendation -am -DskipTests'
+                        sh 'mvn install -pl recommendation -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -282,7 +289,7 @@ pipeline {
                     when { changeset "sampledata/**" }
                     steps {
                         echo 'Changes detected in Sampledata Service. Starting Build...'
-                        sh 'mvn clean install -pl sampledata -am -DskipTests'
+                        sh 'mvn install -pl sampledata -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -290,7 +297,7 @@ pipeline {
                     when { changeset "search/**" }
                     steps {
                         echo 'Changes detected in Search Service. Starting Build...'
-                        sh 'mvn clean install -pl search -am -DskipTests'
+                        sh 'mvn install -pl search -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -298,7 +305,7 @@ pipeline {
                     when { changeset "storefront-bff/**" }
                     steps {
                         echo 'Changes detected in Storefront BFF. Starting Build...'
-                        sh 'mvn clean install -pl storefront-bff -am -DskipTests'
+                        sh 'mvn install -pl storefront-bff -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -306,7 +313,7 @@ pipeline {
                     when { changeset "customer/**" }
                     steps {
                         echo 'Changes detected in Customer Service. Starting Build...'
-                        sh 'mvn clean install -pl customer -am -DskipTests'
+                        sh 'mvn install -pl customer -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
@@ -314,7 +321,7 @@ pipeline {
                     when { changeset "order/**" }
                     steps {
                         echo 'Changes detected in Order Service. Starting Build...'
-                        sh 'mvn clean install -pl order -am -DskipTests'
+                        sh 'mvn install -pl order -am -DskipTests -Dmaven.clean.failOnError=false'
                     }
                 }
 
