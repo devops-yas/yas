@@ -54,16 +54,20 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    // Sử dụng git diff đơn giản nhất để lấy danh sách thư mục
-                    def cmd = "git diff --name-only remotes/origin/main...HEAD | cut -d/ -f1 | sort -u"
-                    def diffFolders = sh(script: cmd, returnStdout: true).trim()
+                    // Lấy danh sách file thay đổi, lọc lấy thư mục cha, loại bỏ file root
+                    def cmd = "git diff --name-only remotes/origin/main...HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    def folders = sh(script: cmd, returnStdout: true).trim()
+                    
+                    // Chuyển đổi xuống dòng thành dấu phẩy
+                    def cleanedList = folders.split("\n").findAll { it.trim() != "" }.join(",")
                     
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        env.TARGET_SERVICES_LIST = diffFolders.replace("\n", ",") ?: "common-library"
+                        env.TARGET_SERVICES_LIST = cleanedList ?: "common-library"
                     }
-                    echo "Dự kiến báo cáo cho: ${env.TARGET_SERVICES_LIST}"
+                    
+                    echo "Final Services for Maven/Sonar: ${env.TARGET_SERVICES_LIST}"
                 }
             }
         }
