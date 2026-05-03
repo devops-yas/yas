@@ -1,41 +1,27 @@
 # Title for the gitleaks configuration file.
-title = "Gitleaks title"
+title = "Gitleaks configuration for YAS Project"
 
-# Extend the base (this) configuration. When you extend a configuration
-# the base rules take precedence over the extended rules. I.e., if there are
-# duplicate rules in both the base configuration and the extended configuration
-# the base rules will override the extended rules.
-# Another thing to know with extending configurations is you can chain together
-# multiple configuration files to a depth of 2. Allowlist arrays are appended
-# and can contain duplicates.
-# useDefault and path can NOT be used at the same time. Choose one.
 [extend]
-# useDefault will extend the base configuration with the default gitleaks config:
-# https://github.com/zricethezav/gitleaks/blob/master/config/gitleaks.toml
+# Kế thừa các quy tắc mặc định của Gitleaks
 useDefault = true
 
 [allowlist]
-description = "global allow list"
+description = "Gộp tất cả danh sách bỏ qua cho đồ án YAS"
+
+# Gộp tất cả các đường dẫn cần bỏ qua vào đây
 paths = [
-  '''test-realm.json''',
-  '''realm-export''',
-  '''keycloak-yas-realm-import.yaml''',
-  '''target'''
+    '''test-realm\.json''',
+    '''realm-export''',
+    '''keycloak-yas-realm-import\.yaml''',
+    '''target/''',
+    '''src/test/resources/''',
+    '''automation-ui/''',
+    '''\.gitleaksignore'''
 ]
 
-[allowlist]
-description = "Bỏ qua các thư mục và file không cần thiết cho đồ án YAS"
-
-# Bỏ qua dựa trên đường dẫn file
-paths = [
-    '''target/''',              # Bỏ qua file build trong thư mục target
-    '''src/test/resources/''',  # Bỏ qua các file JSON test data
-    '''automation-ui/''',       # Bỏ qua mã nguồn test giao diện
-    '''\.gitleaksignore'''      # Bỏ qua chính file ignore
-]
-
-# Bỏ qua dựa trên nội dung (Regex)
+# Gộp tất cả các Regex cần bỏ qua vào đây
 regexes = [
-    '''invalidPassword''',      # Bỏ qua các chuỗi mật khẩu test
-    '''46c49daf-fa62-4744-883d-d32e810cfb9c''' # Bỏ qua UUID cụ thể
+    '''invalidPassword''',
+    '''46c49daf-fa62-4744-883d-d32e810cfb9c''',
+    '''590e533b-5a2d-4dd1-9419-d301f326cf0a'''
 ]
