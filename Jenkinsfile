@@ -100,12 +100,8 @@ pipeline {
                             curl https://static.snyk.io/cli/latest/snyk-linux -o snyk
                             chmod +x ./snyk
                             
-                            # 2. Chạy quét 
-                            IFS=',' read -ra ADDR <<< "${env.TARGET_SERVICES_LIST}"
-                            for i in "${ADDR[@]}"; do
-                                echo "Scanning service: $i"
-                                ./snyk test "$i" --severity-threshold=high --token=$SNYK_TOKEN --json >> snyk-report.json || true
-                            done
+                            # 2. Chạy quét toàn bộ dự án YAS
+                            ./snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
 
                             # 3. In bảng tóm tắt ra Log để chụp báo cáo
                             echo "========================================================="
