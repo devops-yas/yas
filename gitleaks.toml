@@ -17,7 +17,8 @@ paths = [
     '''values\.yaml''',
     '''\.gitleaksignore''',
     '''k8s/deploy/.*''',
-    '''README\.md'''
+    '''README\.md''',
+    '''gitleaks-report\.json'''
 ]
 
 regexes = [

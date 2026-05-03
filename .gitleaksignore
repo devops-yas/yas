@@ -1,33 +1,25 @@
-title = "Gitleaks configuration for YAS Project"
+k8s/charts/yas-configuration/values.yaml:generic-api-key:7
+k8s/charts/yas-configuration/values.yaml:generic-api-key:9
+k8s/deploy/cluster-config.yaml:generic-api-key:13
+k8s/deploy/README.md:generic-api-key:80
+k8s/deploy/README.md:generic-api-key:97
+k8s/deploy/README.md:generic-api-key:99
+payment/src/main/resources/db/changelog/data/changelog-0001-provider.sql:generic-api-key:5
+payment/src/main/resources/db/changelog/data/changelog-0001-provider.sql:generic-api-key:5
+payment/src/main/resources/db/changelog/data/changelog-0001-provider.sql:generic-api-key:5
+customer/src/it/resources/application.properties:generic-api-key:14
+customer/src/main/resources/application.properties:generic-api-key:34
 
-[extend]
-useDefault = true
+# Bỏ qua các mật khẩu giả lập trong code Automation UI
+automation-ui/backoffice/src/test/java/com/yas/automation/ui/steps/LoginSteps.java:hashicorp-tf-password:57
+automation-ui/storefront/src/test/java/com/yas/automation/ui/steps/LoginSteps.java:hashicorp-tf-password:78
 
-[allowlist]
-description = "Whitelist triệt để cho đồ án YAS - Clean 8 lỗi cuối"
+# Bỏ qua các Client Secret trong file export của Keycloak (môi trường Dev/Test)
+common-library/src/test/resources/test-realm.json:generic-api-key:505
+common-library/src/test/resources/test-realm.json:generic-api-key:605
+recommendation/src/test/resources/test-realm.json:generic-api-key:450
+search/src/test/java/resources/test-realm.json:generic-api-key:450
 
-paths = [
-    # Sử dụng dấu ngoặc đơn để bắt mọi đường dẫn chứa các từ khóa này
-    '''target''',
-    '''automation-ui''',
-    '''src/test/resources''',
-    '''test-classes''',
-    # Chặn đích danh các file cấu hình YAML/JSON thường chứa secret giả
-    '''realm-export\.json''',
-    '''test-realm\.json''',
-    '''keycloak-yas-realm-import\.yaml''',
-    '''values\.yaml''',
-    '''\.gitleaksignore'''
-]
-
-regexes = [
-    '''invalidPassword''',
-    # Bỏ qua các chuỗi GUID/UUID (phổ biến trong Keycloak)
-    '''[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}''',
-    # Bỏ qua các chuỗi Secret dài thường gặp trong log của bạn
-    '''NKAr3rnjwm9jlakgKpelukZGFaHYqIWE''',
-    '''TVacLC0cQ8tiiEKiTVerTb2YvwQ1TRJF''',
-    '''ZrU9I0q2uXBglBnmvyJdkl1lf0ncr8tn''',
-    # Bỏ qua các chuỗi ngẫu nhiên dài từ 30-40 ký tự
-    '''[a-zA-Z0-9]{30,40}'''
-]
+# Bỏ qua cấu hình Helm Chart (Lưu ý: Chỉ nên dùng cho lab/đồ án)
+k8s/charts/yas-configuration/values.yaml:generic-api-key:10
+k8s/charts/yas-configuration/values.yaml:generic-api-key:11

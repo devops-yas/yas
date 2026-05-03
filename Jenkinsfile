@@ -151,6 +151,8 @@ pipeline {
                                 chmod +x gitleaks
                             fi
 
+                            rm -f gitleaks-report.json
+
                             # 2. Sử dụng detect với tham số --no-git để quét thư mục hiện tại
                             ./gitleaks detect --source . \
                                 --no-git \
