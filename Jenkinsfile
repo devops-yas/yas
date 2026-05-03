@@ -140,6 +140,7 @@ pipeline {
                             # Chạy docker run trực tiếp, map workspace vào container
                             docker run --rm -v "$(pwd):/code" -w /code zricethezav/gitleaks:latest \
                                 detect --source . \
+                                --no-git \
                                 --report-format json \
                                 --report-path gitleaks-report.json \
                                 --verbose
