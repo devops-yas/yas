@@ -91,44 +91,6 @@ pipeline {
                 }
             }
         }
-        
-        // stage('Gitleaks - Secrets Detection') {
-        //     steps {
-        //         script {
-        //             // echo "Clean up Docker before starting to avoid port conflicts..."
-        //             // echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
-        //             // sh 'docker system prune -f'
-
-        //             echo "Running pre-installed Gitleaks for secrets detection..."
-        //             sh '''
-        //                 # Run gitleaks detect. 
-        //                 # Use || true so the script doesn't stop immediately when a secret is found, 
-        //                 # allowing us to handle reporting logic below.
-        //                 gitleaks detect --source . \
-        //                 --config gitleaks.toml \
-        //                 --report-format json \
-        //                 --report-path gitleaks-report.json \
-        //                 --verbose || true
-                        
-        //                 # Kiểm tra nếu file báo cáo tồn tại
-        //                 if [ -f "gitleaks-report.json" ]; then
-        //                     # -i giúp tìm không phân biệt hoa thường (bắt được cả critical và CRITICAL)
-        //                     CRITICAL=$(grep -ic '"severity":"critical"' gitleaks-report.json || echo 0)
-                            
-        //                     if [ "$CRITICAL" -gt 0 ]; then
-        //                         echo "-------------------------------------------------------"
-        //                         echo "ERROR: Found $CRITICAL CRITICAL secrets in your code!"
-        //                         echo "Please check gitleaks-report.json in Build Artifacts."
-        //                         echo "-------------------------------------------------------"
-        //                         # cat gitleaks-report.json # Chỉ nên cat nếu file nhỏ, nếu lớn sẽ làm rối log
-        //                         exit 1
-        //                     fi
-        //                 fi
-        //                 echo "Gitleaks scan passed - no critical secrets found."
-        //             '''
-        //         }
-        //     }
-        // }
 
         stage('Gitleaks - Secrets Detection') {
             steps {
@@ -139,11 +101,10 @@ pipeline {
                         sh '''
                             # Chạy docker run trực tiếp, map workspace vào container
                             docker run --rm -v "$(pwd):/code" -w /code zricethezav/gitleaks:latest \
-                                detect --source . \
-                                --no-git \
-                                --report-format json \
-                                --report-path gitleaks-report.json \
-                                --verbose
+                            directory . \
+                            --report-format json \
+                            --report-path gitleaks-report.json \
+                            --verbose
                         '''
                     }
                 }
@@ -584,28 +545,31 @@ pipeline {
             script {
                 echo "Đang quét tìm báo cáo JaCoCo trong Workspace..."
                 // Tìm tất cả các thư mục chứa index.html của JaCoCo
-                def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
-                
+                def jacocoReports = sh(script: "find . -maxdepth 4 -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
+        
                 if (jacocoReports) {
                     jacocoReports.split("\n").each { reportPath ->
-                        // Trích xuất tên service từ đường dẫn (ví dụ: ./cart/target/... -> cart)
-                        def serviceName = reportPath.split('/')[1]
-                        def reportDir = "${serviceName}/target/site/jacoco"
+                        def segments = reportPath.split('/')
+                        // Lấy tên service (thường là segment thứ 2 sau dấu ./)
+                        def serviceName = segments[1] 
                         
-                        archiveArtifacts artifacts: "**/target/site/jacoco/**, **/target/*.json, *.json", 
-                         allowEmptyArchive: true
-
                         publishHTML([
                             allowMissing: true,
                             alwaysLinkToLastBuild: true,
-                            reportDir: reportDir,
+                            reportDir: "${serviceName}/target/site/jacoco",
                             reportFiles: 'index.html',
-                            reportName: "JaCoCo Coverage - ${serviceName}"
+                            reportName: "JaCoCo - ${serviceName}"
                         ])
                     }
                 }
+                
+                archiveArtifacts artifacts: """
+                    **/target/site/jacoco/**,
+                    **/target/*.json,
+                    *.json,
+                    **/target/surefire-reports/*.xml
+                """, allowEmptyArchive: true, fingerprint: true
             }
-            archiveArtifacts artifacts: "**/target/*.json, snyk-report.json, gitleaks-report.json", allowEmptyArchive: true
             junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
         }
         
