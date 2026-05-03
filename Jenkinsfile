@@ -51,20 +51,22 @@ pipeline {
     stages {
         stage('Checkout & Detect') {
             steps {
+                sh "find . -name 'target' -type d -exec rm -rf {} +"
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
                     // Lấy danh sách file thay đổi, lọc lấy thư mục cha, loại bỏ file root
-                    def cmd = "git diff --name-only remotes/origin/main...HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    def cmd = "git diff --name-only origin/main..HEAD | grep '/' | cut -d/ -f1 | sort -u"
                     def folders = sh(script: cmd, returnStdout: true).trim()
-                    
-                    // Chuyển đổi xuống dòng thành dấu phẩy
-                    def cleanedList = folders.split("\n").findAll { it.trim() != "" }.join(",")
-                    
+                
+                    def serviceFolders = folders.split("\n").findAll { 
+                        it.trim() != "" && it.trim() != "k8s" && it.trim() != "deployment" 
+                    }.join(",")
+
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        env.TARGET_SERVICES_LIST = cleanedList ?: "common-library"
+                        env.TARGET_SERVICES_LIST = serviceFolders ?: "common-library"
                     }
                     
                     echo "Final Services for Maven/Sonar: ${env.TARGET_SERVICES_LIST}"
@@ -566,25 +568,20 @@ pipeline {
 
         always {
             script {
-                echo "Đang quét tìm báo cáo JaCoCo trong Workspace..."
-                // Tìm tất cả các thư mục chứa index.html của JaCoCo
-                def jacocoReports = sh(script: "find . -maxdepth 4 -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
-        
-                if (jacocoReports) {
-                    jacocoReports.split("\n").each { reportPath ->
-                        def segments = reportPath.split('/')
-                        // Lấy tên service (thường là segment thứ 2 sau dấu ./)
-                        def serviceName = segments[1] 
-                        
-                        publishHTML([
-                            allowMissing: true,
-                            alwaysLinkToLastBuild: true,
-                            reportDir: "${serviceName}/target/site/jacoco",
-                            reportFiles: 'index.html',
-                            reportName: "JaCoCo - ${serviceName}"
-                        ])
+                def services = env.TARGET_SERVICES_LIST.split(",")
+                    services.each { serviceName ->
+                        def reportPath = "${serviceName}/target/site/jacoco/index.html"
+                        // Kiểm tra xem file báo cáo của đúng service đó có tồn tại không
+                        if (fileExists(reportPath)) {
+                            publishHTML([
+                                reportDir: "${serviceName}/target/site/jacoco",
+                                reportFiles: 'index.html',
+                                reportName: "JaCoCo - ${serviceName}"
+                            ])
+                        } else {
+                            echo "Warning: No JaCoCo report found for ${serviceName} at ${reportPath}"
+                        }
                     }
-                }
 
                 archiveArtifacts artifacts: """
                     **/target/site/jacoco/**,
