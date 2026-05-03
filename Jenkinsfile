@@ -106,19 +106,24 @@ pipeline {
                                 chmod +x gitleaks
                             fi
 
-                            # 2. Chạy quét thư mục hiện tại
-                            # directory . sẽ quét toàn bộ file vật lý trong workspace
-                            ./gitleaks directory . --report-format json --report-path gitleaks-report.json --verbose
+                            # 2. Sử dụng detect với tham số --no-git để quét thư mục hiện tại
+                            ./gitleaks detect --source . \
+                                --no-git \
+                                --report-format json \
+                                --report-path gitleaks-report.json \
+                                --verbose || true
 
-                            # 3. Kiểm tra kết quả để in ra log
+                            # 3. Kiểm tra và in báo cáo ra log
                             if [ -f "gitleaks-report.json" ]; then
-                                echo "--- GITLEAKS SCAN COMPLETED ---"
-                                # Đếm số lượng Description tìm thấy trong file JSON
+                                echo "--- GITLEAKS SCAN SUMMARY ---"
+                                # Đếm số lỗ hổng tìm thấy
                                 TOTAL=$(grep -c '"Description"' gitleaks-report.json || echo 0)
-                                echo "Found $TOTAL potential secrets."
+                                echo "Total secrets found: $TOTAL"
                                 
                                 if [ "$TOTAL" -gt 0 ]; then
-                                    echo "ERROR: Critical secrets detected in source code!"
+                                    echo "ERROR: Critical secrets detected! Check Artifacts for details."
+                                    # In vài dòng đầu để minh chứng trong log
+                                    head -n 15 gitleaks-report.json
                                     exit 1
                                 fi
                             fi
