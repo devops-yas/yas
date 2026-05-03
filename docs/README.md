@@ -113,6 +113,31 @@ The final steps are login to GitHub Packages, build and push the docker images. 
 
 To improve the code quality of the project, we have configured that every pull request needs to pass certain conditions: build success, pass sonar gate and have at least 2 developers review and approved, otherwise the Merge button will be blocked.
 
+### Configure branch protection for main (A2 + A3)
+
+This repository includes automation to enforce:
+
+- A2: No direct push to `main`
+- A3: Pull request requires 2 approvals and a required CI check
+
+Files used:
+
+- `.github/workflows/pr-check.yaml` (required PR CI check)
+- `scripts/setup-branch-protection.ps1` (GitHub API automation)
+
+Steps:
+
+1. Push these files to GitHub and wait until the workflow `PR Check` appears at least one run in the Actions tab.
+2. Create a fine-grained personal access token with repository administration write permission.
+3. In PowerShell, set token and run script:
+
+```powershell
+$env:GITHUB_TOKEN = "<your-token>"
+./scripts/setup-branch-protection.ps1 -Owner "<github-owner>" -Repo "<github-repo>" -Branch "main"
+```
+
+Default required check context is `PR Check / gitleaks-pr-check`. If you change workflow/job name, pass the new context with `-RequiredCheckContext`.
+
 ## Authentication and Authorization
 
 Authentication is a challenging task for many developers who want to secure their browser-based applications, especially with SPAs. Traditionally, websites use cookies to authenticate user requests, but with SPAs, people moved to using tokens for authentication. Let's review how cookies and token authentication work and what are the differences between them.
