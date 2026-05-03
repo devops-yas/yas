@@ -95,11 +95,33 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-                    echo "Quét bằng phương pháp Pipe để tránh lỗi Mount Volume..."
+                    echo "--- Đang thực hiện quét bảo mật với Gitleaks Binary ---"
                     catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
-                        // Nén workspace thành tar và gửi trực tiếp vào container gitleaks qua stdin
                         sh '''
-                            tar -cf - . | docker run --rm -i zricethezav/gitleaks:latest detect --source /dev/stdin --report-format json --report-path gitleaks-report.json --verbose
+                            # 1. Tải và giải nén nếu chưa tồn tại
+                            if [ ! -f "gitleaks" ]; then
+                                echo "Downloading Gitleaks binary..."
+                                wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
+                                tar -zxf gitleaks_8.18.2_linux_x64.tar.gz
+                                chmod +x gitleaks
+                            fi
+
+                            # 2. Chạy quét thư mục hiện tại
+                            # directory . sẽ quét toàn bộ file vật lý trong workspace
+                            ./gitleaks directory . --report-format json --report-path gitleaks-report.json --verbose
+
+                            # 3. Kiểm tra kết quả để in ra log
+                            if [ -f "gitleaks-report.json" ]; then
+                                echo "--- GITLEAKS SCAN COMPLETED ---"
+                                # Đếm số lượng Description tìm thấy trong file JSON
+                                TOTAL=$(grep -c '"Description"' gitleaks-report.json || echo 0)
+                                echo "Found $TOTAL potential secrets."
+                                
+                                if [ "$TOTAL" -gt 0 ]; then
+                                    echo "ERROR: Critical secrets detected in source code!"
+                                    exit 1
+                                fi
+                            fi
                         '''
                     }
                 }
