@@ -55,12 +55,14 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    
-                    def cmd = "git diff --name-only remotes/origin/main...HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    sh "git fetch origin main"
+                    def cmd = "git diff --name-only origin/main..HEAD | grep '/' | cut -d/ -f1 | sort -u"
                     def folders = sh(script: cmd, returnStdout: true).trim()
                 
-                    def serviceFolders = folders.split("\n").findAll { 
-                        it.trim() != "" && it.trim() != "k8s" && it.trim() != "deployment" 
+                    def serviceFolders = folders.split("\n").findAll { folder ->
+                        folder = folder.trim()
+                        // Chỉ lấy nếu thư mục có tồn tại file pom.xml
+                        folder != "" && folder != "k8s" && folder != "deployment" && fileExists("${folder}/pom.xml")
                     }.join(",")
 
                     if (params.SERVICE != 'auto') {
