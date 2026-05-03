@@ -131,38 +131,18 @@ pipeline {
         // }
 
         stage('Gitleaks - Secrets Detection') {
-            agent {
-                docker { 
-                    image 'zricethezav/gitleaks:latest'
-                    args '-u root' 
-                }
-            }
             steps {
                 script {
-                    echo "Running Gitleaks scan via Docker container..."
-                    // Sử dụng catchError để stage này có thể fail build nhưng vẫn chạy được khối post
+                    echo "Running Gitleaks via direct Docker run to force logs..."
+                    // Sử dụng catchError để vẫn hiện X đỏ nhưng không làm sập cả pipeline
                     catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                         sh '''
-                            # 1. Chạy quét. Nếu tìm thấy secret, gitleaks tự động trả về exit code khác 0
-                            gitleaks detect --source . \
+                            # Chạy docker run trực tiếp, map workspace vào container
+                            docker run --rm -v "$(pwd):/code" -w /code zricethezav/gitleaks:latest \
+                                detect --source . \
                                 --report-format json \
                                 --report-path gitleaks-report.json \
                                 --verbose
-
-                            # 2. In kết quả tóm tắt ra console để dễ copy vào báo cáo đồ án
-                            if [ -f "gitleaks-report.json" ]; then
-                                echo "--- GITLEAKS SUMMARY ---"
-                                TOTAL_SECRETS=$(grep -c '"Description"' gitleaks-report.json || echo 0)
-                                echo "Total secrets found: $TOTAL_SECRETS"
-                                echo "-----------------------"
-                                
-                                if [ "$TOTAL_SECRETS" -gt 0 ]; then
-                                    echo "ERROR: Secrets detected! Check the report for details."
-                                    # In 10 dòng đầu của report để biết loại secret gì đang bị lộ
-                                    head -n 20 gitleaks-report.json
-                                    exit 1
-                                fi
-                            fi
                         '''
                     }
                 }
