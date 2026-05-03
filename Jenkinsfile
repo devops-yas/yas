@@ -95,16 +95,11 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-                    echo "Quét trực tiếp Workspace bằng cách sử dụng Docker Host..."
+                    echo "Quét bằng phương pháp Pipe để tránh lỗi Mount Volume..."
                     catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        // Nén workspace thành tar và gửi trực tiếp vào container gitleaks qua stdin
                         sh '''
-                            # Sử dụng $(pwd) để lấy đường dẫn hiện tại và ép Docker nhận diện đúng volume
-                            docker run --rm \
-                                -v /var/run/docker.sock:/var/run/docker.sock \
-                                -v "$(pwd):/code" \
-                                -w /code \
-                                zricethezav/gitleaks:latest \
-                                directory . --report-format json --report-path gitleaks-report.json --verbose
+                            tar -cf - . | docker run --rm -i zricethezav/gitleaks:latest detect --source /dev/stdin --report-format json --report-path gitleaks-report.json --verbose
                         '''
                     }
                 }
