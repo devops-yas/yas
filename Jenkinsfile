@@ -109,6 +109,7 @@ pipeline {
                             # 2. Sử dụng detect với tham số --no-git để quét thư mục hiện tại
                             ./gitleaks detect --source . \
                                 --no-git \
+                                --config gitleaks.toml
                                 --report-format json \
                                 --report-path gitleaks-report.json \
                                 --verbose || true

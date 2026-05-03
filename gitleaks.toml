@@ -22,3 +22,20 @@ paths = [
   '''keycloak-yas-realm-import.yaml''',
   '''target'''
 ]
+
+[allowlist]
+description = "Bỏ qua các thư mục và file không cần thiết cho đồ án YAS"
+
+# Bỏ qua dựa trên đường dẫn file
+paths = [
+    '''target/''',              # Bỏ qua file build trong thư mục target
+    '''src/test/resources/''',  # Bỏ qua các file JSON test data
+    '''automation-ui/''',       # Bỏ qua mã nguồn test giao diện
+    '''\.gitleaksignore'''      # Bỏ qua chính file ignore
+]
+
+# Bỏ qua dựa trên nội dung (Regex)
+regexes = [
+    '''invalidPassword''',      # Bỏ qua các chuỗi mật khẩu test
+    '''46c49daf-fa62-4744-883d-d32e810cfb9c''' # Bỏ qua UUID cụ thể
+]
