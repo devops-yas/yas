@@ -95,16 +95,16 @@ pipeline {
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-                    echo "Running Gitleaks via direct Docker run to force logs..."
-                    // Sử dụng catchError để vẫn hiện X đỏ nhưng không làm sập cả pipeline
+                    echo "Quét trực tiếp Workspace bằng cách sử dụng Docker Host..."
                     catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
                         sh '''
-                            # Chạy docker run trực tiếp, map workspace vào container
-                            docker run --rm -v "$(pwd):/code" -w /code zricethezav/gitleaks:latest \
-                            directory . \
-                            --report-format json \
-                            --report-path gitleaks-report.json \
-                            --verbose
+                            # Sử dụng $(pwd) để lấy đường dẫn hiện tại và ép Docker nhận diện đúng volume
+                            docker run --rm \
+                                -v /var/run/docker.sock:/var/run/docker.sock \
+                                -v "$(pwd):/code" \
+                                -w /code \
+                                zricethezav/gitleaks:latest \
+                                directory . --report-format json --report-path gitleaks-report.json --verbose
                         '''
                     }
                 }
@@ -562,7 +562,7 @@ pipeline {
                         ])
                     }
                 }
-                
+
                 archiveArtifacts artifacts: """
                     **/target/site/jacoco/**,
                     **/target/*.json,
