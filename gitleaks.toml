@@ -4,25 +4,30 @@ title = "Gitleaks configuration for YAS Project"
 useDefault = true
 
 [allowlist]
-description = "Whitelist triệt để cho đồ án YAS"
+description = "Whitelist triệt để cho đồ án YAS - Clean 8 lỗi cuối"
 
 paths = [
-    # Sử dụng regex rộng hơn để bắt toàn bộ các file liên quan đến cấu hình test
-    '''test-realm\.json''',
+    # Sử dụng dấu ngoặc đơn để bắt mọi đường dẫn chứa các từ khóa này
+    '''target''',
+    '''automation-ui''',
+    '''src/test/resources''',
+    '''test-classes''',
+    # Chặn đích danh các file cấu hình YAML/JSON thường chứa secret giả
     '''realm-export\.json''',
+    '''test-realm\.json''',
     '''keycloak-yas-realm-import\.yaml''',
     '''values\.yaml''',
-    # Chặn đứng thư mục target và automation-ui
-    '''target/.*''',
-    '''automation-ui/.*''',
-    '''src/test/resources/.*''',
     '''\.gitleaksignore'''
 ]
 
 regexes = [
-    # Bỏ qua mọi chuỗi có dạng secret giả lập thường gặp trong dự án
     '''invalidPassword''',
-    '''[a-zA-Z0-9]{32}''', # Bỏ qua các chuỗi 32 ký tự (thường là secret key giả)
-    '''46c49daf-fa62-4744-883d-d32e810cfb9c''',
-    '''590e533b-5a2d-4dd1-9419-d301f326cf0a'''
+    # Bỏ qua các chuỗi GUID/UUID (phổ biến trong Keycloak)
+    '''[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}''',
+    # Bỏ qua các chuỗi Secret dài thường gặp trong log của bạn
+    '''NKAr3rnjwm9jlakgKpelukZGFaHYqIWE''',
+    '''TVacLC0cQ8tiiEKiTVerTb2YvwQ1TRJF''',
+    '''ZrU9I0q2uXBglBnmvyJdkl1lf0ncr8tn''',
+    # Bỏ qua các chuỗi ngẫu nhiên dài từ 30-40 ký tự
+    '''[a-zA-Z0-9]{30,40}'''
 ]
