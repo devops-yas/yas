@@ -247,4 +247,5 @@ class CartItemControllerTest {
             verify(cartItemService).deleteCartItem(PRODUCT_ID_SAMPLE);
         }
     }
+    //This is a sample text for commit
 }
