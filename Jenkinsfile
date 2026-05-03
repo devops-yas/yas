@@ -102,6 +102,30 @@ pipeline {
                             
                             # 2. Chạy quét toàn bộ dự án YAS
                             ./snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
+
+                            # 3. In bảng tóm tắt ra Log để chụp báo cáo
+                            echo "========================================================="
+                            echo "             SNYK SECURITY SCAN SUMMARY                  "
+                            echo "========================================================="
+                            if [ -f snyk-report.json ]; then
+                                # Dùng jq để đếm các lỗi theo mức độ (nếu report là một array cho nhiều project)
+                                CRITICAL=$(grep -o '"severity": "critical"' snyk-report.json | wc -l)
+                                HIGH=$(grep -o '"severity": "high"' snyk-report.json | wc -l)
+                                PROJECT_NAME=$(grep -o '"projectName": "[^"]*"' snyk-report.json | head -1 | cut -d'"' -f4)
+                                
+                                echo "Project Scanned: $PROJECT_NAME"
+                                echo "Critical Vulnerabilities: $CRITICAL"
+                                echo "High Vulnerabilities: $HIGH"
+                                echo "---------------------------------------------------------"
+                                if [ "$CRITICAL" -eq 0 ] && [ "$HIGH" -eq 0 ]; then
+                                    echo "RESULT: PASSED - No high/critical vulnerabilities found."
+                                else
+                                    echo "RESULT: WARNING - Security vulnerabilities detected!"
+                                fi
+                            else
+                                echo "ERROR: snyk-report.json not found!"
+                            fi
+                            echo "========================================================="
                         '''
                         // Lưu artifact để nộp báo cáo
                         archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
