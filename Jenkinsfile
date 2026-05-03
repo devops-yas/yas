@@ -48,23 +48,41 @@ pipeline {
         booleanParam(name: 'SKIP_IT', defaultValue: true, description: 'Tạm thời bỏ qua Integration Tests')
     }
     
-    stages {
+    stages {       
         stage('Checkout & Detect') {
             steps {
-                echo "Checking out code from ${GIT_BRANCH_NAME}..."
+                // Dọn dẹp trước khi checkout
+                sh "find . -name 'target' -type d -exec rm -rf {} +"
+                echo "Checking out code..."
                 checkout scm
+                
                 script {
-                    // Lấy danh sách file thay đổi, lọc lấy thư mục cha, loại bỏ file root
-                    def cmd = "git diff --name-only remotes/origin/main...HEAD | grep '/' | cut -d/ -f1 | sort -u"
-                    def folders = sh(script: cmd, returnStdout: true).trim()
+                    // 1. Lấy danh sách folder thay đổi
+                    def cmd = "git diff --name-only HEAD~1 HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    def foldersStr = sh(script: cmd, returnStdout: true).trim()
                     
-                    // Chuyển đổi xuống dòng thành dấu phẩy
-                    def cleanedList = folders.split("\n").findAll { it.trim() != "" }.join(",")
-                    
+                    // 2. Xử lý logic thủ công để tránh lỗi ArrayIterator
+                    def validFolders = []
+                    if (foldersStr) {
+                        def rawList = foldersStr.split("\n")
+                        for (int i = 0; i < rawList.length; i++) {
+                            def folder = rawList[i].trim()
+                            // Kiểm tra file tồn tại và loại bỏ folder không mong muốn
+                            if (folder != "" && folder != "k8s" && folder != "deployment") {
+                                if (fileExists("${folder}/pom.xml")) {
+                                    validFolders.add(folder)
+                                }
+                            }
+                        }
+                    }
+
+                    def serviceFolders = validFolders.join(",")
+
+                    // 3. Gán giá trị cuối cùng
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
-                        env.TARGET_SERVICES_LIST = cleanedList ?: "common-library"
+                        env.TARGET_SERVICES_LIST = serviceFolders ?: "common-library"
                     }
                     
                     echo "Final Services for Maven/Sonar: ${env.TARGET_SERVICES_LIST}"
@@ -84,6 +102,30 @@ pipeline {
                             
                             # 2. Chạy quét toàn bộ dự án YAS
                             ./snyk test --all-projects --severity-threshold=high --token=$SNYK_TOKEN --json > snyk-report.json || true
+
+                            # 3. In bảng tóm tắt ra Log để chụp báo cáo
+                            echo "========================================================="
+                            echo "             SNYK SECURITY SCAN SUMMARY                  "
+                            echo "========================================================="
+                            if [ -f snyk-report.json ]; then
+                                # Dùng jq để đếm các lỗi theo mức độ (nếu report là một array cho nhiều project)
+                                CRITICAL=$(grep -o '"severity": "critical"' snyk-report.json | wc -l)
+                                HIGH=$(grep -o '"severity": "high"' snyk-report.json | wc -l)
+                                PROJECT_NAME=$(grep -o '"projectName": "[^"]*"' snyk-report.json | head -1 | cut -d'"' -f4)
+                                
+                                echo "Project Scanned: $PROJECT_NAME"
+                                echo "Critical Vulnerabilities: $CRITICAL"
+                                echo "High Vulnerabilities: $HIGH"
+                                echo "---------------------------------------------------------"
+                                if [ "$CRITICAL" -eq 0 ] && [ "$HIGH" -eq 0 ]; then
+                                    echo "RESULT: PASSED - No high/critical vulnerabilities found."
+                                else
+                                    echo "RESULT: WARNING - Security vulnerabilities detected!"
+                                fi
+                            else
+                                echo "ERROR: snyk-report.json not found!"
+                            fi
+                            echo "========================================================="
                         '''
                         // Lưu artifact để nộp báo cáo
                         archiveArtifacts artifacts: 'snyk-report.json', allowEmptyArchive: true
@@ -91,41 +133,47 @@ pipeline {
                 }
             }
         }
-        
+
         stage('Gitleaks - Secrets Detection') {
             steps {
                 script {
-                    // echo "Clean up Docker before starting to avoid port conflicts..."
-                    // echo "Dọn dẹp Docker trước khi bắt đầu để tránh xung đột port..."
-                    // sh 'docker system prune -f'
-
-                    echo "Running pre-installed Gitleaks for secrets detection..."
-                    sh '''
-                        # Run gitleaks detect. 
-                        # Use || true so the script doesn't stop immediately when a secret is found, 
-                        # allowing us to handle reporting logic below.
-                        gitleaks detect --source . \
-                        --config gitleaks.toml \
-                        --report-format json \
-                        --report-path gitleaks-report.json \
-                        --verbose || true
-                        
-                        # Kiểm tra nếu file báo cáo tồn tại
-                        if [ -f "gitleaks-report.json" ]; then
-                            # -i giúp tìm không phân biệt hoa thường (bắt được cả critical và CRITICAL)
-                            CRITICAL=$(grep -ic '"severity":"critical"' gitleaks-report.json || echo 0)
-                            
-                            if [ "$CRITICAL" -gt 0 ]; then
-                                echo "-------------------------------------------------------"
-                                echo "ERROR: Found $CRITICAL CRITICAL secrets in your code!"
-                                echo "Please check gitleaks-report.json in Build Artifacts."
-                                echo "-------------------------------------------------------"
-                                # cat gitleaks-report.json # Chỉ nên cat nếu file nhỏ, nếu lớn sẽ làm rối log
-                                exit 1
+                    echo "--- Đang thực hiện quét bảo mật với Gitleaks Binary ---"
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        sh '''
+                            # 1. Tải và giải nén nếu chưa tồn tại
+                            if [ ! -f "gitleaks" ]; then
+                                echo "Downloading Gitleaks binary..."
+                                wget -q https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz
+                                tar -zxf gitleaks_8.18.2_linux_x64.tar.gz
+                                chmod +x gitleaks
                             fi
-                        fi
-                        echo "Gitleaks scan passed - no critical secrets found."
-                    '''
+
+                            rm -f gitleaks-report.json
+
+                            # 2. Sử dụng detect với tham số --no-git để quét thư mục hiện tại
+                            ./gitleaks detect --source . \
+                                --no-git \
+                                --config gitleaks.toml \
+                                --report-format json \
+                                --report-path gitleaks-report.json \
+                                --verbose || true
+
+                            # 3. Kiểm tra và in báo cáo ra log
+                            if [ -f "gitleaks-report.json" ]; then
+                                echo "--- GITLEAKS SCAN SUMMARY ---"
+                                # Đếm số lỗ hổng tìm thấy
+                                TOTAL=$(grep -c '"Description"' gitleaks-report.json || echo 0)
+                                echo "Total secrets found: $TOTAL"
+                                
+                                if [ "$TOTAL" -gt 0 ]; then
+                                    echo "ERROR: Critical secrets detected! Check Artifacts for details."
+                                    # In vài dòng đầu để minh chứng trong log
+                                    head -n 15 gitleaks-report.json
+                                    exit 1
+                                fi
+                            fi
+                        '''
+                    }
                 }
             }
         }
@@ -492,7 +540,7 @@ pipeline {
             steps {
                 echo "Running SonarCloud scan for ${env.TARGET_SERVICES_LIST}..."
                 sh '''
-                    mvn sonar:sonar -pl $TARGET_SERVICES_LIST -am \
+                    mvn compile sonar:sonar -pl $TARGET_SERVICES_LIST -am \
                         -Dsonar.projectKey=$SONAR_PROJECT_KEY \
                         -Dsonar.organization=$SONAR_ORGANIZATION \
                         -Dsonar.host.url=https://sonarcloud.io \
@@ -505,9 +553,10 @@ pipeline {
         }
         
         stage('Build & Push Docker') {
-            when { expression { env.GIT_BRANCH_NAME == 'main' } }
+            when { expression { env.BRANCH_NAME == 'main' } }
             steps {
                 script {
+                    echo "Đang build trên nhánh: ${env.BRANCH_NAME}"
                     def services = env.TARGET_SERVICES_LIST.split(',')
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
@@ -561,27 +610,28 @@ pipeline {
 
         always {
             script {
-                echo "Đang quét tìm báo cáo JaCoCo trong Workspace..."
-                // Tìm tất cả các thư mục chứa index.html của JaCoCo
-                def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
-                
-                if (jacocoReports) {
-                    jacocoReports.split("\n").each { reportPath ->
-                        // Trích xuất tên service từ đường dẫn (ví dụ: ./cart/target/... -> cart)
-                        def serviceName = reportPath.split('/')[1]
-                        def reportDir = "${serviceName}/target/site/jacoco"
-                        
-                        publishHTML([
-                            allowMissing: true,
-                            alwaysLinkToLastBuild: true,
-                            reportDir: reportDir,
-                            reportFiles: 'index.html',
-                            reportName: "JaCoCo Coverage - ${serviceName}"
-                        ])
+                def services = env.TARGET_SERVICES_LIST.split(",")
+                    services.each { serviceName ->
+                        def reportPath = "${serviceName}/target/site/jacoco/index.html"
+                        // Kiểm tra xem file báo cáo của đúng service đó có tồn tại không
+                        if (fileExists(reportPath)) {
+                            publishHTML([
+                                reportDir: "${serviceName}/target/site/jacoco",
+                                reportFiles: 'index.html',
+                                reportName: "JaCoCo - ${serviceName}"
+                            ])
+                        } else {
+                            echo "Warning: No JaCoCo report found for ${serviceName} at ${reportPath}"
+                        }
                     }
-                }
+
+                archiveArtifacts artifacts: """
+                    **/target/site/jacoco/**,
+                    **/target/*.json,
+                    *.json,
+                    **/target/surefire-reports/*.xml
+                """, allowEmptyArchive: true, fingerprint: true
             }
-            archiveArtifacts artifacts: "**/target/*.json, snyk-report.json, gitleaks-report.json", allowEmptyArchive: true
             junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
         }
         
