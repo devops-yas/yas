@@ -505,9 +505,10 @@ pipeline {
         }
         
         stage('Build & Push Docker') {
-            when { expression { env.GIT_BRANCH_NAME == 'main' } }
+            when { expression { env.BRANCH_NAME == 'main' } }
             steps {
                 script {
+                    echo "Đang build trên nhánh: ${env.BRANCH_NAME}"
                     def services = env.TARGET_SERVICES_LIST.split(',')
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
@@ -571,6 +572,9 @@ pipeline {
                         def serviceName = reportPath.split('/')[1]
                         def reportDir = "${serviceName}/target/site/jacoco"
                         
+                        archiveArtifacts artifacts: "**/target/site/jacoco/**, **/target/*.json, *.json", 
+                         allowEmptyArchive: true
+
                         publishHTML([
                             allowMissing: true,
                             alwaysLinkToLastBuild: true,
