@@ -131,47 +131,40 @@ pipeline {
         // }
 
         stage('Gitleaks - Secrets Detection') {
-            // Sử dụng image chính thức của gitleaks để đảm bảo lệnh luôn tồn tại
             agent {
                 docker { 
                     image 'zricethezav/gitleaks:latest'
-                    // Chạy với quyền root để tránh vấn đề permission khi ghi file report
                     args '-u root' 
                 }
             }
             steps {
                 script {
                     echo "Running Gitleaks scan via Docker container..."
-                    sh '''
-                        # 1. Chạy quét. Không dùng || true ở đây để lệnh trả về mã lỗi thực tế
-                        # Gitleaks trả về exit code 1 nếu tìm thấy secret
-                        gitleaks detect --source . \
-                            --report-format json \
-                            --report-path gitleaks-report.json \
-                            --verbose || export EXIT_CODE=$?
+                    // Sử dụng catchError để stage này có thể fail build nhưng vẫn chạy được khối post
+                    catchError(buildResult: 'FAILURE', stageResult: 'FAILURE') {
+                        sh '''
+                            # 1. Chạy quét. Nếu tìm thấy secret, gitleaks tự động trả về exit code khác 0
+                            gitleaks detect --source . \
+                                --report-format json \
+                                --report-path gitleaks-report.json \
+                                --verbose
 
-                        # 2. Kiểm tra nếu file báo cáo tồn tại (có nghĩa là đã chạy thành công)
-                        if [ -f "gitleaks-report.json" ]; then
-                            # Đếm số lượng lỗ hổng tìm thấy
-                            TOTAL_SECRETS=$(grep -c '"Description"' gitleaks-report.json || echo 0)
-                            
-                            if [ "$TOTAL_SECRETS" -gt 0 ]; then
-                                echo "-------------------------------------------------------"
-                                echo "WARNING: Found $TOTAL_SECRETS secrets in your code!"
-                                echo "Check gitleaks-report.json in Build Artifacts."
-                                echo "-------------------------------------------------------"
+                            # 2. In kết quả tóm tắt ra console để dễ copy vào báo cáo đồ án
+                            if [ -f "gitleaks-report.json" ]; then
+                                echo "--- GITLEAKS SUMMARY ---"
+                                TOTAL_SECRETS=$(grep -c '"Description"' gitleaks-report.json || echo 0)
+                                echo "Total secrets found: $TOTAL_SECRETS"
+                                echo "-----------------------"
                                 
-                                # Bạn có thể quyết định cho fail build hoặc chỉ cảnh báo
-                                # Nếu là đồ án, nên cho fail build để thể hiện tính nghiêm ngặt
-                                exit 1
+                                if [ "$TOTAL_SECRETS" -gt 0 ]; then
+                                    echo "ERROR: Secrets detected! Check the report for details."
+                                    # In 10 dòng đầu của report để biết loại secret gì đang bị lộ
+                                    head -n 20 gitleaks-report.json
+                                    exit 1
+                                fi
                             fi
-                        else
-                            echo "Gitleaks failed to run or no report generated."
-                            exit 1
-                        fi
-                        
-                        echo "Gitleaks scan passed - no secrets found."
-                    '''
+                        '''
+                    }
                 }
             }
         }
