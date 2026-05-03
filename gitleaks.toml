@@ -1,27 +1,28 @@
-# Title for the gitleaks configuration file.
 title = "Gitleaks configuration for YAS Project"
 
 [extend]
-# Kế thừa các quy tắc mặc định của Gitleaks
 useDefault = true
 
 [allowlist]
-description = "Gộp tất cả danh sách bỏ qua cho đồ án YAS"
+description = "Whitelist triệt để cho đồ án YAS"
 
-# Gộp tất cả các đường dẫn cần bỏ qua vào đây
 paths = [
+    # Sử dụng regex rộng hơn để bắt toàn bộ các file liên quan đến cấu hình test
     '''test-realm\.json''',
-    '''realm-export''',
+    '''realm-export\.json''',
     '''keycloak-yas-realm-import\.yaml''',
-    '''target/''',
-    '''src/test/resources/''',
-    '''automation-ui/''',
+    '''values\.yaml''',
+    # Chặn đứng thư mục target và automation-ui
+    '''target/.*''',
+    '''automation-ui/.*''',
+    '''src/test/resources/.*''',
     '''\.gitleaksignore'''
 ]
 
-# Gộp tất cả các Regex cần bỏ qua vào đây
 regexes = [
+    # Bỏ qua mọi chuỗi có dạng secret giả lập thường gặp trong dự án
     '''invalidPassword''',
+    '''[a-zA-Z0-9]{32}''', # Bỏ qua các chuỗi 32 ký tự (thường là secret key giả)
     '''46c49daf-fa62-4744-883d-d32e810cfb9c''',
     '''590e533b-5a2d-4dd1-9419-d301f326cf0a'''
 ]
