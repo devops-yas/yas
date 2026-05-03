@@ -55,8 +55,8 @@ pipeline {
                 echo "Checking out code from ${GIT_BRANCH_NAME}..."
                 checkout scm
                 script {
-                    // Lấy danh sách file thay đổi, lọc lấy thư mục cha, loại bỏ file root
-                    def cmd = "git diff --name-only origin/main..HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    
+                    def cmd = "git diff --name-only remotes/origin/main...HEAD | grep '/' | cut -d/ -f1 | sort -u"
                     def folders = sh(script: cmd, returnStdout: true).trim()
                 
                     def serviceFolders = folders.split("\n").findAll { 
