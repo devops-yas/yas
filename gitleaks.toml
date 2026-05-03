@@ -16,7 +16,8 @@ paths = [
     '''keycloak-yas-realm-import\.yaml''',
     '''values\.yaml''',
     '''\.gitleaksignore''',
-    '''k8s/deploy/.*'''
+    '''k8s/deploy/.*''',
+    '''README\.md'''
 ]
 
 regexes = [
