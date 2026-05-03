@@ -56,7 +56,7 @@ pipeline {
                 checkout scm
                 script {
                     sh "git fetch origin main"
-                    def cmd = "git diff --name-only origin/main..HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    def cmd = "git diff --name-only HEAD~1 HEAD | grep '/' | cut -d/ -f1 | sort -u"
                     def folders = sh(script: cmd, returnStdout: true).trim()
                 
                     def serviceFolders = folders.split("\n").findAll { folder ->
