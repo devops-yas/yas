@@ -49,22 +49,63 @@ pipeline {
     }
     
     stages {
+        // stage('Checkout & Detect') {
+        //     steps {
+        //         sh "find . -name 'target' -type d -exec rm -rf {} +"
+        //         echo "Checking out code from ${GIT_BRANCH_NAME}..."
+        //         checkout scm
+        //         script {
+        //             sh "git fetch origin main"
+        //             def cmd = "git diff --name-only HEAD~1 HEAD | grep '/' | cut -d/ -f1 | sort -u"
+        //             def folders = sh(script: cmd, returnStdout: true).trim()
+                
+        //             def serviceFolders = folders.split("\n").findAll { folder ->
+        //                 folder = folder.trim()
+        //                 // Chỉ lấy nếu thư mục có tồn tại file pom.xml
+        //                 folder != "" && folder != "k8s" && folder != "deployment" && fileExists("${folder}/pom.xml")
+        //             }.join(",")
+
+        //             if (params.SERVICE != 'auto') {
+        //                 env.TARGET_SERVICES_LIST = params.SERVICE
+        //             } else {
+        //                 env.TARGET_SERVICES_LIST = serviceFolders ?: "common-library"
+        //             }
+                    
+        //             echo "Final Services for Maven/Sonar: ${env.TARGET_SERVICES_LIST}"
+        //         }
+        //     }
+        // }
+
         stage('Checkout & Detect') {
             steps {
+                // Dọn dẹp trước khi checkout
                 sh "find . -name 'target' -type d -exec rm -rf {} +"
-                echo "Checking out code from ${GIT_BRANCH_NAME}..."
+                echo "Checking out code..."
                 checkout scm
-                script {
-                    sh "git fetch origin main"
-                    def cmd = "git diff --name-only HEAD~1 HEAD | grep '/' | cut -d/ -f1 | sort -u"
-                    def folders = sh(script: cmd, returnStdout: true).trim()
                 
-                    def serviceFolders = folders.split("\n").findAll { folder ->
-                        folder = folder.trim()
-                        // Chỉ lấy nếu thư mục có tồn tại file pom.xml
-                        folder != "" && folder != "k8s" && folder != "deployment" && fileExists("${folder}/pom.xml")
-                    }.join(",")
+                script {
+                    // 1. Lấy danh sách folder thay đổi
+                    def cmd = "git diff --name-only HEAD~1 HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    def foldersStr = sh(script: cmd, returnStdout: true).trim()
+                    
+                    // 2. Xử lý logic thủ công để tránh lỗi ArrayIterator
+                    def validFolders = []
+                    if (foldersStr) {
+                        def rawList = foldersStr.split("\n")
+                        for (int i = 0; i < rawList.length; i++) {
+                            def folder = rawList[i].trim()
+                            // Kiểm tra file tồn tại và loại bỏ folder không mong muốn
+                            if (folder != "" && folder != "k8s" && folder != "deployment") {
+                                if (fileExists("${folder}/pom.xml")) {
+                                    validFolders.add(folder)
+                                }
+                            }
+                        }
+                    }
 
+                    def serviceFolders = validFolders.join(",")
+
+                    // 3. Gán giá trị cuối cùng
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
                     } else {
