@@ -18,6 +18,7 @@ paths = [
     '''keycloak-yas-realm-import\.yaml''',
     '''values\.yaml''',
     '''\.gitleaksignore'''
+    '''k8s/deploy/.*'''
 ]
 
 regexes = [
@@ -30,4 +31,5 @@ regexes = [
     '''ZrU9I0q2uXBglBnmvyJdkl1lf0ncr8tn''',
     # Bỏ qua các chuỗi ngẫu nhiên dài từ 30-40 ký tự
     '''[a-zA-Z0-9]{30,40}'''
+    '''LarUmB3A49NTg9YmgW4='''
 ]
