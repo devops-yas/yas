@@ -1,0 +1,675 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: media
+  namespace: yas
+  labels:
+    app: media
+spec:
+  type: ClusterIP
+  selector:
+    app: media
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: media
+  namespace: yas
+  labels:
+    app: media
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: media
+  template:
+    metadata:
+      labels:
+        app: media
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: media
+          image: anhhnus/media-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: media
+
+            - name: SERVER_PORT
+              value: "8080"
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /media
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/media
+
+            - name: SPRING_DATASOURCE_USERNAME
+              value: admin
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/Yas
+
+            - name: YAS_PUBLIC_URL
+              value: http://api.yas.local/media
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          volumeMounts:
+            - name: media-images
+              mountPath: /images
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+      volumes:
+        - name: media-images
+          emptyDir: {}
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: rating
+  namespace: yas
+  labels:
+    app: rating
+spec:
+  type: ClusterIP
+  selector:
+    app: rating
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: rating
+  namespace: yas
+  labels:
+    app: rating
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: rating
+  template:
+    metadata:
+      labels:
+        app: rating
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: rating
+          image: anhhnus/rating-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: rating
+
+            - name: SERVER_PORT
+              value: "8080"
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /rating
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/rating
+
+            - name: SPRING_DATASOURCE_USERNAME
+              value: admin
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/Yas
+
+            - name: YAS_PUBLIC_URL
+              value: http://api.yas.local/rating
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment
+  namespace: yas
+  labels:
+    app: payment
+spec:
+  type: ClusterIP
+  selector:
+    app: payment
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  namespace: yas
+  labels:
+    app: payment
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment
+  template:
+    metadata:
+      labels:
+        app: payment
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: payment
+          image: anhhnus/payment-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: payment
+
+            - name: SERVER_PORT
+              value: "8080"
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /payment
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/payment
+
+            - name: SPRING_DATASOURCE_USERNAME
+              value: admin
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/Yas
+
+            - name: YAS_PUBLIC_URL
+              value: http://api.yas.local/payment
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: promotion
+  namespace: yas
+  labels:
+    app: promotion
+spec:
+  type: ClusterIP
+  selector:
+    app: promotion
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: promotion
+  namespace: yas
+  labels:
+    app: promotion
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: promotion
+  template:
+    metadata:
+      labels:
+        app: promotion
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: promotion
+          image: anhhnus/promotion-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: promotion
+
+            - name: SERVER_PORT
+              value: "8080"
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /promotion
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/promotion
+
+            - name: SPRING_DATASOURCE_USERNAME
+              value: admin
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/Yas
+
+            - name: YAS_PUBLIC_URL
+              value: http://api.yas.local/promotion
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: tax
+  namespace: yas
+  labels:
+    app: tax
+spec:
+  type: ClusterIP
+  selector:
+    app: tax
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tax
+  namespace: yas
+  labels:
+    app: tax
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: tax
+  template:
+    metadata:
+      labels:
+        app: tax
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: tax
+          image: anhhnus/tax-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: tax
+
+            - name: SERVER_PORT
+              value: "8080"
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /tax
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/tax
+
+            - name: SPRING_DATASOURCE_USERNAME
+              value: admin
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/Yas
+
+            - name: YAS_PUBLIC_URL
+              value: http://api.yas.local/tax
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search
+  namespace: yas
+  labels:
+    app: search
+spec:
+  type: ClusterIP
+  selector:
+    app: search
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search
+  namespace: yas
+  labels:
+    app: search
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search
+  template:
+    metadata:
+      labels:
+        app: search
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: search
+          image: anhhnus/search-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: search
+
+            - name: SERVER_PORT
+              value: "8080"
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /search
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/Yas
+
+            - name: ELASTICSEARCH_URL
+              value: elasticsearch
+
+            - name: SPRING_KAFKA_BOOTSTRAP_SERVERS
+              value: kafka:9092
+
+            - name: SPRING_KAFKA_CONSUMER_BOOTSTRAP_SERVERS
+              value: kafka:9092
+
+            - name: SPRING_KAFKA_PRODUCER_BOOTSTRAP_SERVERS
+              value: kafka:9092
+
+            - name: YAS_SERVICES_PRODUCT
+              value: http://product/product
+
+            - name: YAS_PUBLIC_URL
+              value: http://api.yas.local/search
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi

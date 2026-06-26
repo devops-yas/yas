@@ -1,0 +1,630 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: yas-backend-config
+  namespace: yas
+data:
+  SERVER_PORT: "8080"
+
+  SPRING_DATASOURCE_USERNAME: admin
+  SPRING_DATA_REDIS_HOST: redis
+  SPRING_DATA_REDIS_PORT: "6379"
+  SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+
+  SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI: http://keycloak:8080/realms/Yas
+
+  YAS_SERVICES_LOCATION: http://location/location
+  YAS_SERVICES_PRODUCT: http://product/product
+  YAS_SERVICES_CUSTOMER: http://customer/customer
+  YAS_SERVICES_INVENTORY: http://inventory/inventory
+  YAS_SERVICES_CART: http://cart/cart
+  YAS_SERVICES_ORDER: http://order/order
+  YAS_SERVICES_MEDIA: http://media/media
+  YAS_SERVICES_RATING: http://rating/rating
+  YAS_SERVICES_TAX: http://tax/tax
+  YAS_SERVICES_PROMOTION: http://promotion/promotion
+  YAS_SERVICES_PAYMENT: http://payment/payment
+  YAS_SERVICES_SAMPLE_DATA: http://sampledata/sampledata
+
+  YAS_CURRENCY_UNIT: VND
+  YAS_PRICE_INCLUDES_TAX: "false"
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: location
+  namespace: yas
+  labels:
+    app: location
+spec:
+  type: ClusterIP
+  selector:
+    app: location
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: location
+  namespace: yas
+  labels:
+    app: location
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: location
+  template:
+    metadata:
+      labels:
+        app: location
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: location
+          image: anhhnus/location-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: location
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /location
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/location
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product
+  namespace: yas
+  labels:
+    app: product
+spec:
+  type: ClusterIP
+  selector:
+    app: product
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product
+  namespace: yas
+  labels:
+    app: product
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product
+  template:
+    metadata:
+      labels:
+        app: product
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: product
+          image: anhhnus/product-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: product
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /product
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/product
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: customer
+  namespace: yas
+  labels:
+    app: customer
+spec:
+  type: ClusterIP
+  selector:
+    app: customer
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: customer
+  namespace: yas
+  labels:
+    app: customer
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: customer
+  template:
+    metadata:
+      labels:
+        app: customer
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: customer
+          image: anhhnus/customer-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: customer
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /customer
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/customer
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: inventory
+  namespace: yas
+  labels:
+    app: inventory
+spec:
+  type: ClusterIP
+  selector:
+    app: inventory
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: yas
+  labels:
+    app: inventory
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: inventory
+          image: anhhnus/inventory-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: inventory
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /inventory
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/inventory
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart
+  namespace: yas
+  labels:
+    app: cart
+spec:
+  type: ClusterIP
+  selector:
+    app: cart
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart
+  namespace: yas
+  labels:
+    app: cart
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart
+  template:
+    metadata:
+      labels:
+        app: cart
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: cart
+          image: anhhnus/cart-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: cart
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /cart
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/cart
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order
+  namespace: yas
+  labels:
+    app: order
+spec:
+  type: ClusterIP
+  selector:
+    app: order
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order
+  namespace: yas
+  labels:
+    app: order
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order
+  template:
+    metadata:
+      labels:
+        app: order
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: order
+          image: anhhnus/order-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+
+          envFrom:
+            - configMapRef:
+                name: yas-backend-config
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: order
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /order
+
+            - name: SPRING_DATASOURCE_URL
+              value: jdbc:postgresql://postgres:5432/order
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            timeoutSeconds: 2
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            timeoutSeconds: 2
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            timeoutSeconds: 2
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi

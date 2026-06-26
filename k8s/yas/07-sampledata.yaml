@@ -1,0 +1,100 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: sampledata
+  namespace: yas
+spec:
+  selector:
+    app: sampledata
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sampledata
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: sampledata
+  template:
+    metadata:
+      labels:
+        app: sampledata
+    spec:
+      enableServiceLinks: false
+
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+
+      containers:
+        - name: sampledata
+          image: anhhnus/sampledata-service:main
+          imagePullPolicy: Always
+
+          ports:
+            - name: http
+              containerPort: 8080
+
+          env:
+            - name: SPRING_APPLICATION_NAME
+              value: sampledata
+
+            - name: SERVER_PORT
+              value: "8080"
+
+            - name: SERVER_SERVLET_CONTEXT_PATH
+              value: /sampledata
+
+            - name: SPRING_DATASOURCE_PRODUCT_URL
+              value: jdbc:postgresql://postgres:5432/product
+
+            - name: SPRING_DATASOURCE_MEDIA_URL
+              value: jdbc:postgresql://postgres:5432/media
+
+            - name: SPRING_DATASOURCE_USERNAME
+              value: admin
+
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: yas-db-secret
+                  key: POSTGRES_PASSWORD
+
+            - name: SPRING_SECURITY_OAUTH2_RESOURCESERVER_JWT_ISSUER_URI
+              value: http://keycloak:8080/realms/Yas
+
+            - name: YAS_PUBLIC_URL
+              value: http://api.yas.local/sampledata
+
+          startupProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 5
+            failureThreshold: 60
+
+          readinessProbe:
+            tcpSocket:
+              port: http
+            periodSeconds: 10
+            failureThreshold: 6
+
+          livenessProbe:
+            tcpSocket:
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 20
+            failureThreshold: 3
+
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: 750m
+              memory: 768Mi
