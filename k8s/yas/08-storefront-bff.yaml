@@ -1,0 +1,234 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: storefront-bff-config
+  namespace: yas
+data:
+  application.yaml: |
+    server:
+      port: 80
+
+    spring:
+      application:
+        name: storefront-bff
+
+      threads:
+        virtual:
+          enabled: true
+
+      data:
+        redis:
+          host: redis
+          port: 6379
+
+      session:
+        store-type: redis
+
+      security:
+        oauth2:
+          client:
+            provider:
+              keycloak:
+                issuer-uri: http://keycloak:8080/realms/Yas
+            registration:
+              keycloak:
+                provider: keycloak
+                client-id: storefront-bff
+                client-secret: ${KEYCLOAK_STOREFRONT_BFF_CLIENT_SECRET}
+                scope: openid,profile,email,roles
+
+      cloud:
+        gateway:
+          server:
+            webflux:
+              default-filters:
+                - SaveSession
+
+              routes:
+                - id: product-api
+                  uri: http://product
+                  predicates:
+                    - Path=/api/product/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: location-api
+                  uri: http://location
+                  predicates:
+                    - Path=/api/location/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: inventory-api
+                  uri: http://inventory
+                  predicates:
+                    - Path=/api/inventory/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: cart-api
+                  uri: http://cart
+                  predicates:
+                    - Path=/api/cart/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: customer-api
+                  uri: http://customer
+                  predicates:
+                    - Path=/api/customer/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: media-api
+                  uri: http://media
+                  predicates:
+                    - Path=/api/media/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: rating-api
+                  uri: http://rating
+                  predicates:
+                    - Path=/api/rating/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: tax-api
+                  uri: http://tax
+                  predicates:
+                    - Path=/api/tax/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: promotion-api
+                  uri: http://promotion
+                  predicates:
+                    - Path=/api/promotion/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: search-api
+                  uri: http://search
+                  predicates:
+                    - Path=/api/search/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: order-api
+                  uri: http://order
+                  predicates:
+                    - Path=/api/order/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: payment-api
+                  uri: http://payment
+                  predicates:
+                    - Path=/api/payment/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+                - id: sampledata-api
+                  uri: http://sampledata
+                  predicates:
+                    - Path=/api/sampledata/**
+                  filters:
+                    - RewritePath=/api/(?<segment>.*), /$\{segment}
+                    - TokenRelay=
+
+    yas:
+      services:
+        customer: http://customer/customer
+        cart: http://cart/cart
+        token-identity: http://keycloak:8080/realms/Yas/protocol/openid-connect/token
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront-bff
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: storefront-bff
+  template:
+    metadata:
+      labels:
+        app: storefront-bff
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+      containers:
+        - name: storefront-bff
+          image: anhhnus/storefront-bff-service:main
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 80
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: prod
+            - name: SPRING_CONFIG_ADDITIONAL_LOCATION
+              value: optional:file:/config/
+            - name: KEYCLOAK_STOREFRONT_BFF_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: storefront-bff-secret
+                  key: KEYCLOAK_STOREFRONT_BFF_CLIENT_SECRET
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=75.0"
+          volumeMounts:
+            - name: config
+              mountPath: /config
+              readOnly: true
+          readinessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 15
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 80
+            initialDelaySeconds: 60
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 768Mi
+      volumes:
+        - name: config
+          configMap:
+            name: storefront-bff-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront-bff
+  namespace: yas
+spec:
+  selector:
+    app: storefront-bff
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  type: ClusterIP

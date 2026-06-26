@@ -1,0 +1,127 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: storefront-nextjs
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: storefront-nextjs
+  template:
+    metadata:
+      labels:
+        app: storefront-nextjs
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+      containers:
+        - name: storefront-nextjs
+          image: anhhnus/storefront:main
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: HOSTNAME
+              value: "0.0.0.0"
+            - name: PORT
+              value: "3000"
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 40
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: storefront-nextjs
+  namespace: yas
+spec:
+  selector:
+    app: storefront-nextjs
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  type: ClusterIP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backoffice-nextjs
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backoffice-nextjs
+  template:
+    metadata:
+      labels:
+        app: backoffice-nextjs
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: yas-worker-32gb
+      containers:
+        - name: backoffice-nextjs
+          image: anhhnus/backoffice:main
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 3000
+          env:
+            - name: NODE_ENV
+              value: production
+            - name: HOSTNAME
+              value: "0.0.0.0"
+            - name: PORT
+              value: "3000"
+          readinessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            tcpSocket:
+              port: 3000
+            initialDelaySeconds: 40
+            periodSeconds: 15
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: "1"
+              memory: 512Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backoffice-nextjs
+  namespace: yas
+spec:
+  selector:
+    app: backoffice-nextjs
+  ports:
+    - name: http
+      port: 3000
+      targetPort: 3000
+  type: ClusterIP
