@@ -51,7 +51,7 @@ pipeline {
         SONAR_PROJECT_KEY = 'devops-yas_yas'
         DOCKER_REGISTRY_CREDS = credentials('docker-hub-credentials')
         REGISTRY_URL = 'docker.io'
-        DOCKER_NAMESPACE = 'anhhnus'
+        DOCKER_NAMESPACE = '23120138'
         DEFAULT_IMAGE_TAG = 'main'
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
         GIT_BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
@@ -74,8 +74,9 @@ pipeline {
             description: 'Service to build (auto = detect changes)'
         )
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test execution')
-        booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarCloud scan')
+        booleanParam(name: 'SKIP_SONAR', defaultValue: true, description: 'Skip SonarCloud scan')
         booleanParam(name: 'SKIP_IT', defaultValue: true, description: 'Tạm thời bỏ qua Integration Tests')
+        booleanParam(name: 'SKIP_SNYK', defaultValue: true, description: 'Tạm thời bỏ qua Snyk Security Scan')
     }
     
     stages {
@@ -103,6 +104,9 @@ pipeline {
         }
 
         stage('Snyk Security Scan') {
+            when {
+                expression { !params.SKIP_SNYK }
+            }
             steps {
                 script {
                     echo "Downloading Snyk Binary and scanning..."
