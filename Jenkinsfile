@@ -613,7 +613,7 @@ pipeline {
 
                                     // Bên trong block này, lệnh kubectl hệ thống sẽ tự động được nhận diện an toàn
                                     sh """
-                                        kubectl set image deployment/${dockerImageName(service)} \
+                                        kubectl --insecure-skip-tls-verify=true set image deployment/${dockerImageName(service)} \
                                         ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
                                     """
                                 }
