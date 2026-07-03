@@ -607,7 +607,7 @@ pipeline {
                                 echo "[K3S DEPLOY] Sử dụng Kubernetes CLI Plugin để cập nhật container lên cụm K3s..."
                                 
                                 // Gọi plugin bọc ngữ cảnh kết nối: nạp ID credentials và truyền đúng URL IP Tailscale của Master
-                                withKubeConfig([credentialsId: 'k3s-kubeconfig', serverUrl: 'https://100.118.54.48:6443']) {
+                                withKubeConfig([credentialsId: 'k3s-kubeconfig']) {
                                     
                                     sh 'curl -k https://100.118.54.48:6443/livez || true' 
 
