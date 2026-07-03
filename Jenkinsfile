@@ -575,7 +575,7 @@ pipeline {
                     def mavenServices = servicesToDeploy.findAll { fileExists("${it}/pom.xml") }.join(',')
                     if (mavenServices) {
                         echo "[INFO] Đang đóng gói ứng dụng cho các module: ${mavenServices}"
-                        sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false"
+                        sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false -Djacoco.skip=true"
                     }
 
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
