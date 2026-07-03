@@ -535,7 +535,6 @@ pipeline {
         }
         
         stage('Build, Push Docker & Deploy to K3s') {
-            // Xóa bỏ dòng kiểm tra nhánh main cũ để cho phép deploy nhánh test bất kỳ
             steps {
                 script {
                     def services = [
@@ -545,40 +544,33 @@ pipeline {
                         'storefront-bff', 'webhook', 'tax', 'backoffice', 'storefront'
                     ]
                     
-                    // Xác định danh sách service cần build thực tế dựa theo lựa chọn Parameter
                     def servicesToDeploy = []
                     if (params.SERVICE == 'auto') {
-                        // Nếu chọn auto, bốc danh sách các service có file thay đổi đã được detect từ Stage 1
                         servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
                     } else {
-                        // Nếu chọn đích danh 1 service từ danh sách parameter dropdown
                         servicesToDeploy = [params.SERVICE]
                     }
 
                     if (servicesToDeploy.isEmpty()) {
-                        echo "[INFO] Không có thay đổi nào trong các service hoặc service không hợp lệ để deploy Docker. Bỏ qua."
+                        echo "[INFO] Không có thay đổi nào trong các service để deploy. Bỏ qua."
                         return
                     }
 
-                    // 1. Chỉ compile và build install các service thực tế cần thay đổi (Tiết kiệm tài nguyên máy)
                     def mavenServices = servicesToDeploy.findAll { fileExists("${it}/pom.xml") }.join(',')
                     if (mavenServices) {
-                        echo "[INFO] Đang đóng gói ứng dụng thực tế cho các module: ${mavenServices}"
+                        echo "[INFO] Đang đóng gói ứng dụng cho các module: ${mavenServices}"
                         sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false"
                     }
 
-                    // 2. Tiến hành đăng nhập và xử lý Docker Images + Deploy thực tế xuyên Tailscale
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
                         
-                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}" [cite: 126, 127]
+                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
                         
                         for (service in servicesToDeploy) {
                             if (fileExists("${service}/Dockerfile")) {
-                                def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}" [cite: 127]
-                                
-                                // Quy định Tag thực tế: dùng Commit ID ngắn hiện tại theo đúng Mục 3 đồ án
-                                def deployTag = env.GIT_COMMIT_SHORT [cite: 6]
+                                def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}"
+                                def deployTag = env.GIT_COMMIT_SHORT
                                 
                                 echo "[DOCKER BUILD] Đang build image cho service [${service}] với Tag: ${deployTag}..."
                                 sh """
@@ -586,11 +578,11 @@ pipeline {
                                         -t ${imageRepository}:${deployTag} \
                                         -t ${imageRepository}:${env.DEFAULT_IMAGE_TAG} \
                                         ${service}
-                                """ [cite: 128, 129, 130]
+                                """
                                 
                                 echo "[DOCKER PUSH] Đang push image lên Docker Hub..."
                                 sh "docker push ${imageRepository}:${deployTag}"
-                                sh "docker push ${imageRepository}:${env.DEFAULT_IMAGE_TAG}" [cite: 131]
+                                sh "docker push ${imageRepository}:${env.DEFAULT_IMAGE_TAG}"
                                 
                                 echo "[K3S DEPLOY] Đang bắn lệnh cập nhật container sang cụm K3s thực tế..."
                                 sh """
@@ -600,7 +592,7 @@ pipeline {
                                 
                                 echo "[SUCCESS] Service ${service} đã được cập nhật thực tế trên K3s!"
                             } else {
-                                echo "Skipping ${service}: Dockerfile not found" [cite: 132]
+                                echo "Skipping ${service}: Dockerfile not found"
                             }
                         }
                     }
