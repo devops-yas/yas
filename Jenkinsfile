@@ -604,11 +604,17 @@ pipeline {
                                 sh "docker push ${imageRepository}:${deployTag}"
                                 sh "docker push ${imageRepository}:${env.DEFAULT_IMAGE_TAG}"
                                 
-                                echo "[K3S DEPLOY] Đang bắn lệnh cập nhật container sang cụm K3s thực tế..."
-                                sh """
-                                    kubectl --kubeconfig=${KUBECONFIG_CRED} set image deployment/${dockerImageName(service)} \
-                                    ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
-                                """
+                                echo "[K3S DEPLOY] Sử dụng Kubernetes CLI Plugin để cập nhật container lên cụm K3s..."
+                                
+                                // Gọi plugin bọc ngữ cảnh kết nối: nạp ID credentials và truyền đúng URL IP Tailscale của Master
+                                withKubeConfig([credentialsId: 'k3s-kubeconfig', serverUrl: 'https://100.118.54.48:6443']) {
+                                    
+                                    // Bên trong block này, lệnh kubectl hệ thống sẽ tự động được nhận diện an toàn
+                                    sh """
+                                        kubectl set image deployment/${dockerImageName(service)} \
+                                        ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
+                                    """
+                                }
                                 
                                 echo "[SUCCESS] Service ${service} đã được cập nhật thực tế trên K3s!"
                             } else {
