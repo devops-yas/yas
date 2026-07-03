@@ -56,6 +56,7 @@ pipeline {
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
         GIT_BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
         BUILD_VERSION = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
+        KUBECONFIG_CRED = credentials('k3s-kubeconfig')
     }
 
     tools {
@@ -533,54 +534,73 @@ pipeline {
             }
         }
         
-        stage('Build & Push Docker') {
-            when { expression { env.GIT_BRANCH_NAME == 'main' } }
+        stage('Build, Push Docker & Deploy to K3s') {
+            // Xóa bỏ dòng kiểm tra nhánh main cũ để cho phép deploy nhánh test bất kỳ
             steps {
                 script {
                     def services = [
-                        'product',
-                        'order',
-                        'customer',
-                        'inventory',
-                        'location',
-                        'media',
-                        'payment',
-                        'payment-paypal',
-                        'promotion',
-                        'rating',
-                        'search',
-                        'cart',
-                        'recommendation',
-                        'sampledata',
-                        'backoffice-bff',
-                        'storefront-bff',
-                        'webhook',
-                        'tax',
-                        'backoffice',
-                        'storefront'
+                        'product', 'order', 'customer', 'inventory', 'location',
+                        'media', 'payment', 'payment-paypal', 'promotion', 'rating',
+                        'search', 'cart', 'recommendation', 'sampledata', 'backoffice-bff',
+                        'storefront-bff', 'webhook', 'tax', 'backoffice', 'storefront'
                     ]
-                    def mavenServices = services.findAll { fileExists("${it}/pom.xml") }.join(',')
+                    
+                    // Xác định danh sách service cần build thực tế dựa theo lựa chọn Parameter
+                    def servicesToDeploy = []
+                    if (params.SERVICE == 'auto') {
+                        // Nếu chọn auto, bốc danh sách các service có file thay đổi đã được detect từ Stage 1
+                        servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
+                    } else {
+                        // Nếu chọn đích danh 1 service từ danh sách parameter dropdown
+                        servicesToDeploy = [params.SERVICE]
+                    }
 
-                    sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false"
+                    if (servicesToDeploy.isEmpty()) {
+                        echo "[INFO] Không có thay đổi nào trong các service hoặc service không hợp lệ để deploy Docker. Bỏ qua."
+                        return
+                    }
 
+                    // 1. Chỉ compile và build install các service thực tế cần thay đổi (Tiết kiệm tài nguyên máy)
+                    def mavenServices = servicesToDeploy.findAll { fileExists("${it}/pom.xml") }.join(',')
+                    if (mavenServices) {
+                        echo "[INFO] Đang đóng gói ứng dụng thực tế cho các module: ${mavenServices}"
+                        sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false"
+                    }
+
+                    // 2. Tiến hành đăng nhập và xử lý Docker Images + Deploy thực tế xuyên Tailscale
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
-                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
-                        for (service in services) {
+                        
+                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}" [cite: 126, 127]
+                        
+                        for (service in servicesToDeploy) {
                             if (fileExists("${service}/Dockerfile")) {
-                                def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}"
+                                def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}" [cite: 127]
+                                
+                                // Quy định Tag thực tế: dùng Commit ID ngắn hiện tại theo đúng Mục 3 đồ án
+                                def deployTag = env.GIT_COMMIT_SHORT [cite: 6]
+                                
+                                echo "[DOCKER BUILD] Đang build image cho service [${service}] với Tag: ${deployTag}..."
                                 sh """
                                     docker build \
+                                        -t ${imageRepository}:${deployTag} \
                                         -t ${imageRepository}:${env.DEFAULT_IMAGE_TAG} \
-                                        -t ${imageRepository}:${env.GIT_COMMIT_SHORT} \
-                                        -t ${imageRepository}:${env.BUILD_VERSION} \
                                         ${service}
+                                """ [cite: 128, 129, 130]
+                                
+                                echo "[DOCKER PUSH] Đang push image lên Docker Hub..."
+                                sh "docker push ${imageRepository}:${deployTag}"
+                                sh "docker push ${imageRepository}:${env.DEFAULT_IMAGE_TAG}" [cite: 131]
+                                
+                                echo "[K3S DEPLOY] Đang bắn lệnh cập nhật container sang cụm K3s thực tế..."
+                                sh """
+                                    kubectl --kubeconfig=${KUBECONFIG_CRED} set image deployment/${dockerImageName(service)} \
+                                    ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
                                 """
-                                sh "docker push ${imageRepository}:${env.DEFAULT_IMAGE_TAG}"
-                                sh "docker push ${imageRepository}:${env.GIT_COMMIT_SHORT}"
-                                sh "docker push ${imageRepository}:${env.BUILD_VERSION}"
+                                
+                                echo "[SUCCESS] Service ${service} đã được cập nhật thực tế trên K3s!"
                             } else {
-                                echo "Skipping ${service}: Dockerfile not found"
+                                echo "Skipping ${service}: Dockerfile not found" [cite: 132]
                             }
                         }
                     }
@@ -590,39 +610,6 @@ pipeline {
     }
     
     post {
-        // always {
-        //     junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
-        //     script {
-        //         echo "Archiving artifacts for all affected services..."
-                
-        //         def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
-
-
-        //         // Dùng wildcard ** để gom báo cáo từ mọi module trong project
-        //         archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
-        //                         allowEmptyArchive: true
-                
-        //         // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
-        //         if (env.TARGET_SERVICES_LIST != null)
-        //         {
-        //             def services = env.TARGET_SERVICES_LIST.split(',')
-        //             for (service in services) {
-        //                 def reportPath = "${service}/target/site/jacoco/index.html"
-        //                 if (fileExists(reportPath)) {
-        //                     publishHTML([
-        //                         allowMissing: true,
-        //                         alwaysLinkToLastBuild: true,
-        //                         keepAll: true,
-        //                         reportDir: "${service}/target/site/jacoco",
-        //                         reportFiles: 'index.html',
-        //                         reportName: "JaCoCo Coverage - ${service}"
-        //                     ])
-        //                 }
-        //             }
-        //         }               
-        //     }
-        // }
-
         always {
             script {
                 echo "Đang quét tìm báo cáo JaCoCo trong Workspace..."
