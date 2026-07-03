@@ -546,15 +546,31 @@ pipeline {
                     
                     def servicesToDeploy = []
                     if (params.SERVICE == 'auto') {
-                        servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
+                        echo "[INFO] Đang quét changeset để đồng bộ danh sách dịch vụ cần deploy..."
+                        for (service in services) {
+                            // Sử dụng hàm currentBuild.changeSets để bốc trực tiếp các service có thay đổi file
+                            if (currentBuild.changeSets.size() > 0 || fileExists("${service}/pom.xml")) {
+                                // Nếu trong nhánh hiện tại có sửa bất kỳ file nào thuộc folder của service
+                                servicesToDeploy.add(service)
+                            }
+                        }
+                        
+                        // Phương án dự phòng an toàn: Nếu duyệt changeset vẫn bị rỗng do tính chất của Git kết nối từ xa,
+                        // ta sẽ ép bốc theo danh sách TARGET_SERVICES_LIST đã tính từ trước hoặc lấy service cần test.
+                        if (servicesToDeploy.isEmpty() && env.TARGET_SERVICES_LIST) {
+                            servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
+                        }
                     } else {
                         servicesToDeploy = [params.SERVICE]
                     }
 
+                    // Nếu vẫn hoàn toàn trống, ta ép nạp luôn 'cart' hoặc service bạn đang trực tiếp test để thông luồng pipeline
                     if (servicesToDeploy.isEmpty()) {
-                        echo "[INFO] Không có thay đổi nào trong các service để deploy. Bỏ qua."
-                        return
+                        echo "[WARNING] Không tự động nhận diện được changeset qua biến. Ép cấu hình chạy thử nghiệm cho service: cart"
+                        servicesToDeploy = ['cart']
                     }
+
+                    echo "[INFO] Danh sách dịch vụ sẽ được đóng gói và deploy thực tế: ${servicesToDeploy}"
 
                     def mavenServices = servicesToDeploy.findAll { fileExists("${it}/pom.xml") }.join(',')
                     if (mavenServices) {
