@@ -1,0 +1,10 @@
+# Sử dụng chính xác phiên bản Java/Maven nền mà đồ án YAS đang dùng [cite: 4, 7]
+FROM maven:3.9-eclipse-temurin-21
+
+# Tải cài đặt cứng kubectl phiên bản ổn định vào hệ thống bên trong Image
+RUN curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl" \
+    && chmod +x ./kubectl \
+    && mv ./kubectl /usr/local/bin/kubectl
+
+# Kiểm tra xem kubectl đã cài đặt thành công chưa lúc build
+RUN kubectl version --client
