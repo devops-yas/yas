@@ -51,7 +51,7 @@ pipeline {
         SONAR_PROJECT_KEY = 'devops-yas_yas'
         DOCKER_REGISTRY_CREDS = credentials('docker-hub-credentials')
         REGISTRY_URL = 'docker.io'
-        DOCKER_NAMESPACE = '23120138'
+        DOCKER_NAMESPACE = 'anhhnus'
         DEFAULT_IMAGE_TAG = 'main'
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
         GIT_BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
