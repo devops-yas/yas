@@ -543,26 +543,31 @@ pipeline {
                 script {
                     def services = [
                         'product', 'order', 'customer', 'inventory', 'location',
-                        'media', 'payment', 'payment-paypal', 'promotion', 'rating',
+                        'media', 'payment', 'promotion', 'rating',
                         'search', 'cart', 'recommendation', 'sampledata', 'backoffice-bff',
                         'storefront-bff', 'webhook', 'tax', 'backoffice', 'storefront'
                     ]
                     
                     def servicesToDeploy = []
                     if (params.SERVICE == 'auto') {
-                        echo "[INFO] Đang quét changeset để đồng bộ danh sách dịch vụ cần deploy..."
-                        for (service in services) {
-                            // Sử dụng hàm currentBuild.changeSets để bốc trực tiếp các service có thay đổi file
-                            if (currentBuild.changeSets.size() > 0 || fileExists("${service}/pom.xml")) {
-                                // Nếu trong nhánh hiện tại có sửa bất kỳ file nào thuộc folder của service
-                                servicesToDeploy.add(service)
-                            }
+                        echo "[INFO] Đang xác định danh sách dịch vụ cần deploy dựa trên changeset..."
+                        if (env.TARGET_SERVICES_LIST) {
+                            servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
                         }
                         
-                        // Phương án dự phòng an toàn: Nếu duyệt changeset vẫn bị rỗng do tính chất của Git kết nối từ xa,
-                        // ta sẽ ép bốc theo danh sách TARGET_SERVICES_LIST đã tính từ trước hoặc lấy service cần test.
-                        if (servicesToDeploy.isEmpty() && env.TARGET_SERVICES_LIST) {
-                            servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
+                        // Phương án dự phòng: Nếu TARGET_SERVICES_LIST rỗng, thử kiểm tra từ currentBuild.changeSets
+                        if (servicesToDeploy.isEmpty() && currentBuild.changeSets.size() > 0) {
+                            for (changeSet in currentBuild.changeSets) {
+                                for (entry in changeSet.items) {
+                                    for (file in entry.paths) {
+                                        for (service in services) {
+                                            if (file.path.startsWith("${service}/") && !servicesToDeploy.contains(service)) {
+                                                servicesToDeploy.add(service)
+                                            }
+                                        }
+                                    }
+                                }
+                            }
                         }
                     } else {
                         servicesToDeploy = [params.SERVICE]
