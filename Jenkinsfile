@@ -624,8 +624,8 @@ pipeline {
                                     // Truyền thẳng đường dẫn file config do Jenkins tạo ra cho kubectl
                                     sh """
                                         kubectl --kubeconfig=${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
-                                        set image deployment/${dockerImageName(service)} \
-                                        ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas
+                                        set image deployment/${service} \
+                                        ${service}=${imageRepository}:${deployTag} -n yas
                                     """
                                 }
 
