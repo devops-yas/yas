@@ -582,7 +582,7 @@ pipeline {
                         sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false -Djacoco.skip=true"
                     }
 
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-anhhnus', 
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
                         
                         sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
