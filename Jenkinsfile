@@ -618,25 +618,16 @@ pipeline {
                                 //     """
                                 // }
                                 
-                                withCredentials([string(credentialsId: 'k3s-kubeconfig-raw', variable: 'K3S_RAW_CONFIG')]) {
-    
-                                // Ghi chuỗi cấu hình ra một file tạm trong folder workspace
-                                sh 'echo "$K3S_RAW_CONFIG" > .kube_temp_config'
-                                
-                                // Test thử xem network thông không
-                                sh 'curl -k https://100.118.54.48:6443/livez || true' 
-
-                                // Chạy lệnh kubectl và ép nó đọc file config tạm vừa tạo bằng tham số --kubeconfig
-                                // Đồng thời giữ cờ --insecure-skip-tls-verify=true để bỏ qua lỗi chứng chỉ IP Tailscale
-                                sh """
-                                    kubectl --kubeconfig=.kube_temp_config --insecure-skip-tls-verify=true \
-                                    set image deployment/${dockerImageName(service)} \
-                                    ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
-                                """
-                                
-                                // Xóa file tạm sau khi deploy xong để đảm bảo an toàn bảo mật
-                                sh 'rm -f .kube_temp_config'
-                            }
+                                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBE_CONFIG_PATH')]) {
+                                    // Test network
+                                    sh 'curl -k https://100.118.54.48:6443/livez || true' 
+                                    // Truyền thẳng đường dẫn file config do Jenkins tạo ra cho kubectl
+                                    sh """
+                                        kubectl --kubeconfig=${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
+                                        set image deployment/${dockerImageName(service)} \
+                                        ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
+                                    """
+                                }
 
                                 echo "[SUCCESS] Service ${service} đã được cập nhật thực tế trên K3s!"
                             } else {
