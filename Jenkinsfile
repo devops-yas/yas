@@ -625,7 +625,7 @@ pipeline {
                                     sh """
                                         kubectl --kubeconfig=${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
                                         set image deployment/${dockerImageName(service)} \
-                                        ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
+                                        ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas
                                     """
                                 }
 
