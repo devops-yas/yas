@@ -575,7 +575,16 @@ pipeline {
                     withCredentials([usernamePassword(credentialsId: 'docker-hub-anhhnus', 
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
                         
-                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
+                        // Kiểm tra nhanh và tự động cài đặt docker.io nếu image agent hiện tại chưa có docker CLI
+                        sh '''
+                            if ! command -v docker > /dev/null 2>&1; then
+                                echo "[WARNING] Docker CLI chưa có sẵn trong container agent. Đang tự động cài đặt docker.io..."
+                                apt-get update && apt-get install -y docker.io
+                            fi
+                        '''
+                        
+                        // Sử dụng single-quote để bash shell tự nhận biến môi trường (tránh Groovy String interpolation warning & lộ secret)
+                        sh 'echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USERNAME" --password-stdin "$REGISTRY_URL"'
                         
                         for (service in servicesToDeploy) {
                             if (fileExists("${service}/Dockerfile")) {
@@ -613,7 +622,7 @@ pipeline {
                                     sh 'curl -k https://100.118.54.48:6443/livez || true' 
                                     // Truyền thẳng đường dẫn file config do Jenkins tạo ra cho kubectl
                                     sh """
-                                        kubectl --kubeconfig=${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
+                                        kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
                                         set image deployment/${service} \
                                         ${service}=${imageRepository}:${deployTag} -n yas
                                     """
