@@ -550,24 +550,9 @@ pipeline {
                     
                     def servicesToDeploy = []
                     if (params.SERVICE == 'auto') {
-                        echo "[INFO] Đang xác định danh sách dịch vụ cần deploy dựa trên changeset..."
+                        echo "[INFO] Đang xác định danh sách dịch vụ cần deploy dựa trên TARGET_SERVICES_LIST..."
                         if (env.TARGET_SERVICES_LIST) {
                             servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
-                        }
-                        
-                        // Phương án dự phòng: Nếu TARGET_SERVICES_LIST rỗng, thử kiểm tra từ currentBuild.changeSets
-                        if (servicesToDeploy.isEmpty() && currentBuild.changeSets.size() > 0) {
-                            for (changeSet in currentBuild.changeSets) {
-                                for (entry in changeSet.items) {
-                                    for (file in entry.paths) {
-                                        for (service in services) {
-                                            if (file.path.startsWith("${service}/") && !servicesToDeploy.contains(service)) {
-                                                servicesToDeploy.add(service)
-                                            }
-                                        }
-                                    }
-                                }
-                            }
                         }
                     } else {
                         servicesToDeploy = [params.SERVICE]
