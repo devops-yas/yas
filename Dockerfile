@@ -3,8 +3,8 @@ FROM jenkins/jenkins:lts-jdk21
 
 USER root
 
-# Cập nhật và cài đặt các công cụ cơ bản
-RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+# Cập nhật và cài đặt các công cụ cơ bản (bao gồm docker.io để chạy Docker-in-Docker)
+RUN apt-get update && apt-get install -y wget docker.io && rm -rf /var/lib/apt/lists/*
 
 # Tải và cài đặt Gitleaks (Yêu cầu 7c)
 RUN wget https://github.com/gitleaks/gitleaks/releases/download/v8.18.2/gitleaks_8.18.2_linux_x64.tar.gz \
