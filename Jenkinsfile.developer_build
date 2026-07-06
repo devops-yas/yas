@@ -123,19 +123,11 @@ pipeline {
         always {
             script {
                 echo "========================================================================"
-                echo " [SUCCESS] TRIỂN KHAI HOÀN TẤT CHO DEVELOPER (Namespace: ${params.DEVELOPER_NS})"
+                echo " [SUCCESS] TRIỂN KHAI HOÀN TẤT VÀ SẴN SÀNG KIỂM THỬ (Namespace: ${params.DEVELOPER_NS})"
                 echo "========================================================================"
-                echo " 👉 HƯỚNG DẪN TRUY CẬP VÀ TEST CODE DÀNH CHO DEVELOPER:"
-                echo " 1. Mở file hosts trên máy tính cá nhân của bạn:"
-                echo "    - Windows: C:\\Windows\\System32\\drivers\\etc\\hosts"
-                echo "    - Linux/Mac: /etc/hosts"
-                echo " 2. Thêm dòng sau vào file hosts (trỏ đến IP Worker Node K8s):"
-                echo "    <IP_Worker_Node>  api.yas.local storefront.yas.local backoffice.yas.local"
-                echo " 3. Truy cập thông qua trình duyệt hoặc Postman/Curl với NodePort:"
-                echo "    http://storefront.yas.local:<NodePort>/"
-                echo "    http://api.yas.local:<NodePort>/swagger-ui.html"
-                echo " 4. Khi test xong, bấm vào link dưới đây để mở trang dọn dẹp tài nguyên (Yêu cầu 5):"
-                echo "    ${env.JENKINS_URL}job/developer_destroy/"
+                echo " 👉 Storefront UI     : http://storefront.yas.local:<NodePort>/"
+                echo " 👉 Swagger API       : http://api.yas.local:<NodePort>/swagger-ui.html"
+                echo " 👉 Dọn dẹp (Task 5)  : ${env.JENKINS_URL}job/developer_destroy/"
                 echo "========================================================================"
                 
                 // Set Build Description hiển thị Hyperlink trực tiếp trên trang Build Jenkins
