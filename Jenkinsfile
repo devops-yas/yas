@@ -27,6 +27,12 @@ def dockerImageName(String service) {
     return dockerImageNames.get(service, service)
 }
 
+def dockerTagSafe(String value) {
+    def tag = (value ?: 'unknown').replaceAll(/[^A-Za-z0-9_.-]/, '-')
+    tag = tag.replaceAll(/^[.-]+/, '')
+    return tag.take(128) ?: 'unknown'
+}
+
 pipeline {
 //    agent any
     agent {
@@ -53,9 +59,7 @@ pipeline {
         REGISTRY_URL = 'docker.io'
         DOCKER_NAMESPACE = 'anhhnus'
         DEFAULT_IMAGE_TAG = 'main'
-        GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
-        GIT_BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
-        BUILD_VERSION = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
+        DOCKER_CREDENTIAL_ID = 'docker-hub-credentials'
     }
 
     tools {
@@ -80,11 +84,37 @@ pipeline {
     stages {
         stage('Checkout & Detect') {
             steps {
-                echo "Checking out code from ${GIT_BRANCH_NAME}..."
+                echo "Checking out code from Jenkins branch: ${env.BRANCH_NAME ?: env.GIT_BRANCH ?: 'unknown'}"
                 checkout scm
                 script {
-                    // Lấy danh sách file thay đổi, lọc lấy thư mục cha, loại bỏ file root
-                    def cmd = "git diff --name-only remotes/origin/main...HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    env.GIT_COMMIT_FULL = sh(script: "git rev-parse HEAD", returnStdout: true).trim()
+                    env.GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
+
+                    def detectedBranch = env.BRANCH_NAME ?: env.CHANGE_BRANCH ?: env.GIT_LOCAL_BRANCH ?: env.GIT_BRANCH
+                    if (!detectedBranch?.trim()) {
+                        detectedBranch = sh(script: "git branch --show-current || git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
+                    }
+                    detectedBranch = detectedBranch?.replaceFirst(/^origin\//, '')
+                    env.GIT_BRANCH_NAME = detectedBranch ?: 'unknown'
+                    env.GIT_BRANCH_TAG = dockerTagSafe(env.GIT_BRANCH_NAME)
+                    env.BUILD_VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
+                    env.BRANCH_IMAGE_TAG = env.GIT_BRANCH_NAME == 'main' ? env.DEFAULT_IMAGE_TAG : "branch-${env.GIT_BRANCH_TAG}"
+
+                    echo "Current branch: ${env.GIT_BRANCH_NAME}"
+                    echo "Full commit SHA: ${env.GIT_COMMIT_FULL}"
+                    echo "Short commit SHA used for immutable Docker tag: ${env.GIT_COMMIT_SHORT}"
+
+                    // Lấy danh sách file thay đổi, lọc lấy thư mục cha, loại bỏ file root.
+                    // Prefer Jenkins' previous commit for Multibranch builds; fall back to HEAD~1 for first branch builds.
+                    def previousCommit = env.GIT_PREVIOUS_SUCCESSFUL_COMMIT ?: env.GIT_PREVIOUS_COMMIT
+                    def cmd
+                    if (previousCommit?.trim() && sh(script: "git cat-file -e ${previousCommit}^{commit}", returnStatus: true) == 0) {
+                        cmd = "git diff --name-only ${previousCommit}...HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    } else if (sh(script: "git rev-parse --verify HEAD~1", returnStatus: true) == 0) {
+                        cmd = "git diff --name-only HEAD~1 HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    } else {
+                        cmd = "git diff-tree --no-commit-id --name-only -r HEAD | grep '/' | cut -d/ -f1 | sort -u"
+                    }
                     def folders = sh(script: cmd, returnStdout: true).trim()
                     
                     // Chuyển đổi xuống dòng thành dấu phẩy
@@ -534,10 +564,9 @@ pipeline {
         }
         
         stage('Build & Push Docker') {
-            when { expression { env.GIT_BRANCH_NAME == 'main' } }
             steps {
                 script {
-                    def services = [
+                    def imageServices = [
                         'product',
                         'order',
                         'customer',
@@ -559,26 +588,49 @@ pipeline {
                         'backoffice',
                         'storefront'
                     ]
+                    def requestedServices = env.TARGET_SERVICES_LIST.split(',').collect { it.trim() }.findAll { it }
+                    def services = requestedServices.findAll { imageServices.contains(it) && fileExists("${it}/Dockerfile") }
+                    def skippedServices = requestedServices.findAll { !services.contains(it) }
+
+                    if (services.isEmpty()) {
+                        echo "No changed services with Dockerfiles were detected for Docker build. Requested services: ${requestedServices.join(', ')}"
+                        return
+                    }
+
+                    echo "Docker build branch: ${env.GIT_BRANCH_NAME}"
+                    echo "Docker build full commit SHA: ${env.GIT_COMMIT_FULL}"
+                    echo "Docker build short commit SHA tag: ${env.GIT_COMMIT_SHORT}"
+                    echo "Docker build services: ${services.join(', ')}"
+                    if (!skippedServices.isEmpty()) {
+                        echo "Skipping services without Task 3 Docker images: ${skippedServices.join(', ')}"
+                    }
+
                     def mavenServices = services.findAll { fileExists("${it}/pom.xml") }.join(',')
 
-                    sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false"
+                    if (mavenServices) {
+                        sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false"
+                    }
 
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
+                    withCredentials([usernamePassword(credentialsId: env.DOCKER_CREDENTIAL_ID,
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
-                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
+                        sh 'printf "%s" "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USERNAME" --password-stdin "$REGISTRY_URL"'
                         for (service in services) {
                             if (fileExists("${service}/Dockerfile")) {
                                 def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}"
+                                def imageTags = [env.BRANCH_IMAGE_TAG, env.GIT_COMMIT_SHORT, env.BUILD_VERSION].unique()
+                                def tagArgs = imageTags.collect { "-t ${imageRepository}:${it}" }.join(' ')
+                                echo "Service/image being built: ${service}"
+                                echo "Docker repository: ${imageRepository}"
+                                echo "Tags being created: ${imageTags.join(', ')}"
                                 sh """
                                     docker build \
-                                        -t ${imageRepository}:${env.DEFAULT_IMAGE_TAG} \
-                                        -t ${imageRepository}:${env.GIT_COMMIT_SHORT} \
-                                        -t ${imageRepository}:${env.BUILD_VERSION} \
+                                        ${tagArgs} \
                                         ${service}
                                 """
-                                sh "docker push ${imageRepository}:${env.DEFAULT_IMAGE_TAG}"
-                                sh "docker push ${imageRepository}:${env.GIT_COMMIT_SHORT}"
-                                sh "docker push ${imageRepository}:${env.BUILD_VERSION}"
+                                for (tag in imageTags) {
+                                    echo "Pushing Docker image: ${imageRepository}:${tag}"
+                                    sh "docker push ${imageRepository}:${tag}"
+                                }
                             } else {
                                 echo "Skipping ${service}: Dockerfile not found"
                             }
