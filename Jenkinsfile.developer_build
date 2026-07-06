@@ -134,12 +134,12 @@ pipeline {
                 echo " 3. Truy cập thông qua trình duyệt hoặc Postman/Curl với NodePort:"
                 echo "    http://storefront.yas.local:<NodePort>/"
                 echo "    http://api.yas.local:<NodePort>/swagger-ui.html"
-                echo " 4. Khi test xong, bấm vào link dưới đây để dọn dẹp tài nguyên (Yêu cầu 5):"
-                echo "    ${env.JENKINS_URL}job/developer_destroy/build?delay=0sec"
+                echo " 4. Khi test xong, bấm vào link dưới đây để mở trang dọn dẹp tài nguyên (Yêu cầu 5):"
+                echo "    ${env.JENKINS_URL}job/developer_destroy/"
                 echo "========================================================================"
                 
                 // Set Build Description hiển thị Hyperlink trực tiếp trên trang Build Jenkins
-                currentBuild.description = "<a href='${env.JENKINS_URL}job/developer_destroy/build?delay=0sec' target='_blank'>🗑️ Bấm vào đây để dọn dẹp môi trường (developer_destroy)</a>"
+                currentBuild.description = "<a href='${env.JENKINS_URL}job/developer_destroy/' target='_blank'>🗑️ Bấm vào đây để mở Job dọn dẹp môi trường (developer_destroy)</a>"
             }
         }
     }
