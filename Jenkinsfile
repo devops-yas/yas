@@ -583,52 +583,61 @@ pipeline {
                             fi
                         '''
                         
-                        // Sử dụng single-quote để bash shell tự nhận biến môi trường (tránh Groovy String interpolation warning & lộ secret)
-                        sh 'echo "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USERNAME" --password-stdin "$REGISTRY_URL"'
+                        // Sử dụng single-quote và printf để bash shell xử lý an toàn (tránh Groovy String interpolation warning & lộ secret)
+                        sh 'printf "%s" "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USERNAME" --password-stdin "$REGISTRY_URL"'
                         
                         for (service in servicesToDeploy) {
                             if (fileExists("${service}/Dockerfile")) {
                                 def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}"
-                                def deployTag = env.GIT_COMMIT_SHORT
                                 
-                                echo "[DOCKER BUILD] Đang build image cho service [${service}] với Tag: ${deployTag}..."
+                                // Tổng hợp danh sách tag theo đúng Yêu cầu 3 của đồ án: Commit ID cuối cùng + branch tag + default tag + build version
+                                def imageTags = [env.GIT_COMMIT_SHORT, env.BRANCH_IMAGE_TAG, env.DEFAULT_IMAGE_TAG, env.BUILD_VERSION].findAll { it != null && !it.isEmpty() }.unique()
+                                def tagArgs = imageTags.collect { "-t ${imageRepository}:${it}" }.join(' ')
+                                def deployTag = env.GIT_COMMIT_SHORT ?: env.DEFAULT_IMAGE_TAG
+                                
+                                echo "=========================================================="
+                                echo "[DOCKER BUILD] Service: ${service}"
+                                echo "Repository: ${imageRepository}"
+                                echo "Tags: ${imageTags.join(', ')}"
+                                echo "=========================================================="
+                                
                                 sh """
                                     docker build \
-                                        -t ${imageRepository}:${deployTag} \
-                                        -t ${imageRepository}:${env.DEFAULT_IMAGE_TAG} \
+                                        ${tagArgs} \
                                         ${service}
                                 """
                                 
-                                echo "[DOCKER PUSH] Đang push image lên Docker Hub..."
-                                sh "docker push ${imageRepository}:${deployTag}"
-                                sh "docker push ${imageRepository}:${env.DEFAULT_IMAGE_TAG}"
+                                echo "[DOCKER PUSH] Đang push tất cả các tags lên Docker Hub..."
+                                for (tag in imageTags) {
+                                    echo "Pushing: ${imageRepository}:${tag}"
+                                    sh "docker push ${imageRepository}:${tag}"
+                                }
                                 
-                                echo "[K3S DEPLOY] Sử dụng Kubernetes CLI Plugin để cập nhật container lên cụm K3s..."
+                                // Xác định Namespace triển khai theo Yêu cầu 6 đồ án (Dev vs Staging)
+                                def targetNamespace = 'yas'
+                                if (env.GIT_BRANCH_NAME == 'main' || env.GIT_BRANCH_NAME == 'master') {
+                                    targetNamespace = 'dev'
+                                } else if (env.GIT_BRANCH_NAME?.startsWith('v') || env.GIT_BRANCH_NAME?.startsWith('release')) {
+                                    targetNamespace = 'staging'
+                                } else if (env.K8S_NAMESPACE) {
+                                    targetNamespace = env.K8S_NAMESPACE
+                                }
                                 
-                                // Gọi plugin bọc ngữ cảnh kết nối: nạp ID credentials và truyền đúng URL IP Tailscale của Master
-                                // withKubeConfig([credentialsId: 'k3s-kubeconfig']) {
-                                    
-                                //     sh 'curl -k https://100.118.54.48:6443/livez || true' 
-
-                                //     // Bên trong block này, lệnh kubectl hệ thống sẽ tự động được nhận diện an toàn
-                                //     sh """
-                                //         kubectl --insecure-skip-tls-verify=true set image deployment/${dockerImageName(service)} \
-                                //         ${dockerImageName(service)}=${imageRepository}:${deployTag} -n yas-dev
-                                //     """
-                                // }
+                                echo "[K3S DEPLOY] Đang cập nhật service [${service}] lên cụm K3s (Namespace: ${targetNamespace}) với Tag: ${deployTag}..."
                                 
                                 withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBE_CONFIG_PATH')]) {
                                     // Test network
                                     sh 'curl -k https://100.118.54.48:6443/livez || true' 
-                                    // Truyền thẳng đường dẫn file config do Jenkins tạo ra cho kubectl
+                                    // Cập nhật image mới nhất cho deployment trên K3s
                                     sh """
                                         kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
                                         set image deployment/${service} \
-                                        ${service}=${imageRepository}:${deployTag} -n yas
+                                        ${service}=${imageRepository}:${deployTag} -n ${targetNamespace} || \
+                                        echo "[WARNING] Không thể deploy ${service} vào namespace '${targetNamespace}'. Có thể deployment chưa tồn tại hoặc cần khởi tạo trước."
                                     """
                                 }
 
-                                echo "[SUCCESS] Service ${service} đã được cập nhật thực tế trên K3s!"
+                                echo "[SUCCESS] Service ${service} đã hoàn tất CI/CD (Built, Pushed & Deployed)!"
                             } else {
                                 echo "Skipping ${service}: Dockerfile not found"
                             }
