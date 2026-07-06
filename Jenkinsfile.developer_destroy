@@ -1,5 +1,10 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'docker.io/anhhnus/maven-kubectl:3.9-21'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --network host --privileged --user root'
+        }
+    }
     
     parameters {
         string(name: 'DEVELOPER_NS', defaultValue: 'yas-dev', description: 'Namespace của developer muốn dọn dẹp / xóa bỏ trên K3s (vd: yas-dev)')
@@ -16,6 +21,16 @@ pipeline {
                     
                     withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBE_CONFIG_PATH')]) {
                         sh 'curl -k https://100.118.54.48:6443/livez || true'
+                        
+                        // Kiểm tra nhanh và tự động tải về kubectl nếu trong agent chưa có
+                        sh '''
+                            if ! command -v kubectl > /dev/null 2>&1; then
+                                echo "[WARNING] kubectl chưa có sẵn. Đang tự động tải về kubectl..."
+                                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                                chmod +x kubectl
+                                mv kubectl /usr/local/bin/ || mv kubectl /usr/bin/
+                            fi
+                        '''
                         
                         if (params.DELETE_ENTIRE_NAMESPACE) {
                             echo "--> Xóa hoàn toàn namespace [${params.DEVELOPER_NS}]..."
