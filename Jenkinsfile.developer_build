@@ -80,8 +80,11 @@ pipeline {
                             fi
                         '''
                         
-                        // 1. Đảm bảo namespace tồn tại
-                        sh "kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true create namespace ${params.DEVELOPER_NS} --dry-run=client -o yaml | kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true apply -f -"
+                        // 1. Đảm bảo namespace tồn tại & tự động bật lại pod nếu trước đó bị tắt bởi job destroy
+                        sh """
+                            kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true create namespace ${params.DEVELOPER_NS} --dry-run=client -o yaml | kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true apply -f -
+                            kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true scale deployment --all --replicas=1 -n ${params.DEVELOPER_NS} || true
+                        """
                         
                         // 2. Cập nhật image cho từng service
                         serviceTagMap.each { serviceKey, tagValue ->
