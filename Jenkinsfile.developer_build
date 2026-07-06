@@ -84,16 +84,33 @@ pipeline {
                         sh "kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true create namespace ${params.DEVELOPER_NS} --dry-run=client -o yaml | kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true apply -f -"
                         
                         // 2. Cập nhật image cho từng service
-                        serviceTagMap.each { serviceName, tagValue ->
-                            def imageRepo = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${serviceName}:${tagValue}"
-                            echo "--> Deploying [${serviceName}] với Image: ${imageRepo} vào Namespace [${params.DEVELOPER_NS}]"
+                        serviceTagMap.each { serviceKey, tagValue ->
+                            // Xác định deployment name, container name và docker image name trên Docker Hub
+                            def deployName = serviceKey
+                            def containerName = serviceKey
+                            def dockerRepo = "${serviceKey}-service"
+                            
+                            if (serviceKey == 'storefront-bff' || serviceKey == 'backoffice-bff') {
+                                dockerRepo = serviceKey
+                            } else if (serviceKey == 'storefront-ui') {
+                                deployName = 'storefront-nextjs'
+                                containerName = 'storefront-nextjs'
+                                dockerRepo = 'storefront'
+                            } else if (serviceKey == 'backoffice-ui') {
+                                deployName = 'backoffice-nextjs'
+                                containerName = 'backoffice-nextjs'
+                                dockerRepo = 'backoffice'
+                            }
+                            
+                            def imageRepo = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerRepo}:${tagValue}"
+                            echo "--> Deploying [${deployName}] với Image: ${imageRepo} vào Namespace [${params.DEVELOPER_NS}]"
                             
                             // Thực thi cập nhật image K8s (nếu deployment đã tồn tại)
                             sh """
                                 kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
-                                set image deployment/${serviceName} \
-                                ${serviceName}=${imageRepo} -n ${params.DEVELOPER_NS} || \
-                                echo "[INFO] Deployment '${serviceName}' chưa có sẵn trong namespace '${params.DEVELOPER_NS}', bỏ qua set image."
+                                set image deployment/${deployName} \
+                                ${containerName}=${imageRepo} -n ${params.DEVELOPER_NS} || \
+                                echo "[INFO] Deployment '${deployName}' chưa có sẵn trong namespace '${params.DEVELOPER_NS}', bỏ qua set image."
                             """
                         }
                     }
@@ -117,7 +134,12 @@ pipeline {
                 echo " 3. Truy cập thông qua trình duyệt hoặc Postman/Curl với NodePort:"
                 echo "    http://storefront.yas.local:<NodePort>/"
                 echo "    http://api.yas.local:<NodePort>/swagger-ui.html"
+                echo " 4. Khi test xong, bấm vào link dưới đây để dọn dẹp tài nguyên (Yêu cầu 5):"
+                echo "    ${env.JENKINS_URL}job/developer_destroy/build?delay=0sec"
                 echo "========================================================================"
+                
+                // Set Build Description hiển thị Hyperlink trực tiếp trên trang Build Jenkins
+                currentBuild.description = "<a href='${env.JENKINS_URL}job/developer_destroy/build?delay=0sec' target='_blank'>🗑️ Bấm vào đây để dọn dẹp môi trường (developer_destroy)</a>"
             }
         }
     }
