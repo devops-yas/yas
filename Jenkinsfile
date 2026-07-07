@@ -33,6 +33,31 @@ def dockerTagSafe(String value) {
     return tag.take(128) ?: 'unknown'
 }
 
+def dockerBuildServices() {
+    return [
+        'product',
+        'order',
+        'customer',
+        'inventory',
+        'location',
+        'media',
+        'payment',
+        'payment-paypal',
+        'promotion',
+        'rating',
+        'search',
+        'cart',
+        'recommendation',
+        'sampledata',
+        'backoffice-bff',
+        'storefront-bff',
+        'webhook',
+        'tax',
+        'backoffice',
+        'storefront'
+    ]
+}
+
 pipeline {
 //    agent any
     agent {
@@ -60,6 +85,9 @@ pipeline {
         DOCKER_NAMESPACE = 'anhhnus'
         DEFAULT_IMAGE_TAG = 'main'
         DOCKER_CREDENTIAL_ID = 'docker-hub-credentials'
+        GITOPS_GIT_CREDENTIALS_ID = 'gitops-repo-credentials'
+        GITOPS_GIT_EMAIL = 'jenkins@yas.local'
+        GITOPS_GIT_NAME = 'yas-jenkins'
     }
 
     tools {
@@ -79,6 +107,7 @@ pipeline {
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test execution')
         booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarCloud scan')
         booleanParam(name: 'SKIP_IT', defaultValue: true, description: 'Tạm thời bỏ qua Integration Tests')
+        booleanParam(name: 'PUSH_GITOPS_CHANGES', defaultValue: false, description: 'Commit and push ArgoCD GitOps image tag updates')
     }
     
     stages {
@@ -98,9 +127,23 @@ pipeline {
                     env.GIT_BRANCH_NAME = detectedBranch ?: 'unknown'
                     env.GIT_BRANCH_TAG = dockerTagSafe(env.GIT_BRANCH_NAME)
                     env.BUILD_VERSION = "${env.BUILD_NUMBER}-${env.GIT_COMMIT_SHORT}"
-                    env.BRANCH_IMAGE_TAG = env.GIT_BRANCH_NAME == 'main' ? env.DEFAULT_IMAGE_TAG : "branch-${env.GIT_BRANCH_TAG}"
+
+                    def detectedTag = env.TAG_NAME
+                    if (!detectedTag?.trim()) {
+                        detectedTag = sh(
+                            script: 'git tag --points-at HEAD | grep -E "^v[0-9]+[.][0-9]+[.][0-9]+([.-][A-Za-z0-9.-]+)?$" | head -n1 || true',
+                            returnStdout: true
+                        ).trim()
+                    }
+                    env.GIT_RELEASE_TAG = detectedTag ?: ''
+                    env.IS_RELEASE_TAG = env.GIT_RELEASE_TAG ? 'true' : 'false'
+                    env.BRANCH_IMAGE_TAG = env.GIT_RELEASE_TAG ? env.GIT_RELEASE_TAG : (env.GIT_BRANCH_NAME == 'main' ? env.DEFAULT_IMAGE_TAG : "branch-${env.GIT_BRANCH_TAG}")
+                    env.GITOPS_ENVIRONMENT = env.GIT_RELEASE_TAG ? 'staging' : (env.GIT_BRANCH_NAME == 'main' ? 'dev' : '')
+                    env.GITOPS_IMAGE_TAG = env.GIT_RELEASE_TAG ? env.GIT_RELEASE_TAG : env.GIT_COMMIT_SHORT
+                    env.GITOPS_TARGET_BRANCH = env.GIT_RELEASE_TAG ? 'main' : env.GIT_BRANCH_NAME
 
                     echo "Current branch: ${env.GIT_BRANCH_NAME}"
+                    echo "Release tag: ${env.GIT_RELEASE_TAG ?: 'none'}"
                     echo "Full commit SHA: ${env.GIT_COMMIT_FULL}"
                     echo "Short commit SHA used for immutable Docker tag: ${env.GIT_COMMIT_SHORT}"
 
@@ -122,6 +165,8 @@ pipeline {
                     
                     if (params.SERVICE != 'auto') {
                         env.TARGET_SERVICES_LIST = params.SERVICE
+                    } else if (env.GIT_RELEASE_TAG) {
+                        env.TARGET_SERVICES_LIST = dockerBuildServices().join(',')
                     } else {
                         env.TARGET_SERVICES_LIST = cleanedList ?: "common-library"
                     }
@@ -566,31 +611,11 @@ pipeline {
         stage('Build & Push Docker') {
             steps {
                 script {
-                    def imageServices = [
-                        'product',
-                        'order',
-                        'customer',
-                        'inventory',
-                        'location',
-                        'media',
-                        'payment',
-                        'payment-paypal',
-                        'promotion',
-                        'rating',
-                        'search',
-                        'cart',
-                        'recommendation',
-                        'sampledata',
-                        'backoffice-bff',
-                        'storefront-bff',
-                        'webhook',
-                        'tax',
-                        'backoffice',
-                        'storefront'
-                    ]
+                    def imageServices = dockerBuildServices()
                     def requestedServices = env.TARGET_SERVICES_LIST.split(',').collect { it.trim() }.findAll { it }
                     def services = requestedServices.findAll { imageServices.contains(it) && fileExists("${it}/Dockerfile") }
                     def skippedServices = requestedServices.findAll { !services.contains(it) }
+                    env.DOCKER_BUILT_SERVICES_LIST = services.join(',')
 
                     if (services.isEmpty()) {
                         echo "No changed services with Dockerfiles were detected for Docker build. Requested services: ${requestedServices.join(', ')}"
@@ -617,7 +642,7 @@ pipeline {
                         for (service in services) {
                             if (fileExists("${service}/Dockerfile")) {
                                 def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}"
-                                def imageTags = [env.BRANCH_IMAGE_TAG, env.GIT_COMMIT_SHORT, env.BUILD_VERSION].unique()
+                                def imageTags = env.GIT_RELEASE_TAG ? [env.GIT_RELEASE_TAG] : [env.BRANCH_IMAGE_TAG, env.GIT_COMMIT_SHORT, env.BUILD_VERSION].unique()
                                 def tagArgs = imageTags.collect { "-t ${imageRepository}:${it}" }.join(' ')
                                 echo "Service/image being built: ${service}"
                                 echo "Docker repository: ${imageRepository}"
@@ -635,6 +660,51 @@ pipeline {
                                 echo "Skipping ${service}: Dockerfile not found"
                             }
                         }
+                    }
+                }
+            }
+        }
+
+        stage('Update ArgoCD GitOps Manifests') {
+            when {
+                expression { env.GITOPS_ENVIRONMENT?.trim() && env.DOCKER_BUILT_SERVICES_LIST?.trim() }
+            }
+            steps {
+                script {
+                    echo "Updating ${env.GITOPS_ENVIRONMENT} GitOps image tags to ${env.GITOPS_IMAGE_TAG}"
+                    sh '''
+                        python3 scripts/update-gitops-images.py \
+                          --environment "$GITOPS_ENVIRONMENT" \
+                          --tag "$GITOPS_IMAGE_TAG" \
+                          --services "$DOCKER_BUILT_SERVICES_LIST"
+                    '''
+
+                    def hasChanges = sh(script: 'git diff --quiet -- k8s/gitops/overlays', returnStatus: true) == 1
+                    if (!hasChanges) {
+                        echo "No GitOps manifest changes detected."
+                        return
+                    }
+
+                    sh 'git diff -- k8s/gitops/overlays'
+
+                    if (!params.PUSH_GITOPS_CHANGES) {
+                        echo "PUSH_GITOPS_CHANGES=false, so Jenkins did not commit or push GitOps manifest changes."
+                        return
+                    }
+
+                    withCredentials([usernamePassword(credentialsId: env.GITOPS_GIT_CREDENTIALS_ID,
+                                    passwordVariable: 'GIT_PASSWORD', usernameVariable: 'GIT_USERNAME')]) {
+                        sh '''
+                            git config user.email "$GITOPS_GIT_EMAIL"
+                            git config user.name "$GITOPS_GIT_NAME"
+                            git add k8s/gitops/overlays
+                            git commit -m "chore(gitops): update ${GITOPS_ENVIRONMENT} images to ${GITOPS_IMAGE_TAG}"
+                            git config credential.username "$GIT_USERNAME"
+                            git config credential.helper "!f() { echo username=$GIT_USERNAME; echo password=$GIT_PASSWORD; }; f"
+                            git push origin "HEAD:${GITOPS_TARGET_BRANCH}"
+                            git config --unset-all credential.helper || true
+                            git config --unset-all credential.username || true
+                        '''
                     }
                 }
             }

@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - postgres-configmaps.yaml
+  - 01-postgres-redis.yaml
+  - 02-messaging-search.yaml
+  - 03-keycloak.yaml
+  - 04-backend-core.yaml
+  - 05-backend-services.yaml
+  - 06-kafka-connect.yaml
+  - 08-storefront-bff.yaml
+  - 09-backoffice-bff.yaml
+  - 10-frontends.yaml
+  - 11-ingress.yaml
+  - swagger-ui.yaml
+  - sampledata.yaml
