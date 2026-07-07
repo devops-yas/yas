@@ -1,0 +1,72 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init
+  namespace: yas
+data:
+  postgres_init.sql: |
+    CREATE DATABASE keycloak WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE media WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE product WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE cart WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE rating WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE "order" WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE location WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE inventory WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE promotion WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE tax WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE customer WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE payment WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE webhook WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+
+    CREATE DATABASE recommendation WITH OWNER = admin ENCODING = 'UTF8' LC_COLLATE = 'en_US.utf8' LC_CTYPE = 'en_US.utf8' TABLESPACE = pg_default CONNECTION
+    LIMIT = -1;
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-config
+  namespace: yas
+data:
+  postgresql.conf.sample: |
+    # LOGGING
+    # log_min_error_statement = fatal
+    # log_min_messages = DEBUG1
+
+    # CONNECTION
+    listen_addresses = '*'
+
+    # MODULES
+    shared_preload_libraries = 'decoderbufs,wal2json'
+
+    # REPLICATION
+    wal_level = logical             # minimal, archive, hot_standby, or logical (change requires restart)
+    max_wal_senders = 20             # max number of walsender processes (change requires restart)
+    #wal_keep_segments = 4          # in logfile segments, 16MB each; 0 disables
+    #wal_sender_timeout = 60s       # in milliseconds; 0 disables
+    max_replication_slots = 20       # max number of replication slots (change requires restart)

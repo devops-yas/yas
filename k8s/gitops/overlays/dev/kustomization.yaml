@@ -1,0 +1,53 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: dev
+
+resources:
+  - ../../base
+
+commonLabels:
+  app.kubernetes.io/part-of: yas
+  app.kubernetes.io/environment: dev
+
+images:
+  - name: anhhnus/product-service
+    newTag: main
+  - name: anhhnus/cart-service
+    newTag: main
+  - name: anhhnus/order-service
+    newTag: main
+  - name: anhhnus/customer-service
+    newTag: main
+  - name: anhhnus/inventory-service
+    newTag: main
+  - name: anhhnus/tax-service
+    newTag: main
+  - name: anhhnus/media-service
+    newTag: main
+  - name: anhhnus/search-service
+    newTag: main
+  - name: anhhnus/storefront-bff
+    newTag: main
+  - name: anhhnus/storefront
+    newTag: main
+  - name: anhhnus/backoffice-bff
+    newTag: main
+  - name: anhhnus/backoffice
+    newTag: main
+  - name: anhhnus/sampledata-service
+    newTag: main
+  - name: anhhnus/location-service
+    newTag: main
+  - name: anhhnus/payment-service
+    newTag: main
+  - name: anhhnus/payment-paypal-service
+    newTag: main
+  - name: anhhnus/promotion-service
+    newTag: main
+  - name: anhhnus/rating-service
+    newTag: main
+  - name: anhhnus/recommendation-service
+    newTag: main
+  - name: anhhnus/webhook-service
+    newTag: main

@@ -1,0 +1,57 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: swagger-ui
+  namespace: yas
+  labels:
+    app: swagger-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: swagger-ui
+  template:
+    metadata:
+      labels:
+        app: swagger-ui
+    spec:
+      containers:
+        - name: swagger-ui
+          image: swaggerapi/swagger-ui:v5.17.14
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8080
+          env:
+            - name: BASE_URL
+              value: /swagger-ui
+            - name: URLS
+              value: '[{"url":"/api/product/v3/api-docs","name":"Product"},{"url":"/api/media/v3/api-docs","name":"Media"},{"url":"/api/customer/v3/api-docs","name":"Customer"},{"url":"/api/cart/v3/api-docs","name":"Cart"},{"url":"/api/order/v3/api-docs","name":"Order"},{"url":"/api/inventory/v3/api-docs","name":"Inventory"},{"url":"/api/tax/v3/api-docs","name":"Tax"},{"url":"/api/search/v3/api-docs","name":"Search"}]'
+          readinessProbe:
+            httpGet:
+              path: /swagger-ui/
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: /swagger-ui/
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 20
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: swagger-ui
+  namespace: yas
+  labels:
+    app: swagger-ui
+spec:
+  type: ClusterIP
+  selector:
+    app: swagger-ui
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
