@@ -74,9 +74,9 @@ pipeline {
             description: 'Service to build (auto = detect changes)'
         )
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test execution')
-        booleanParam(name: 'SKIP_SONAR', defaultValue: true, description: 'Skip SonarCloud scan')
+        booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarCloud scan')
         booleanParam(name: 'SKIP_IT', defaultValue: true, description: 'Tạm thời bỏ qua Integration Tests')
-        booleanParam(name: 'SKIP_SNYK', defaultValue: true, description: 'Tạm thời bỏ qua Snyk Security Scan')
+        booleanParam(name: 'SKIP_SNYK', defaultValue: false, description: 'Tạm thời bỏ qua Snyk Security Scan')
     }
     
     stages {
