@@ -34,8 +34,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: media
@@ -153,8 +151,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: rating
@@ -264,8 +260,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: payment
@@ -309,21 +303,24 @@ spec:
               value: http://api.yas.local/payment
 
           startupProbe:
-            tcpSocket:
+            httpGet:
+              path: /payment/actuator/health/liveness
               port: http
             periodSeconds: 5
             timeoutSeconds: 2
-            failureThreshold: 60
+            failureThreshold: 120
 
           readinessProbe:
-            tcpSocket:
+            httpGet:
+              path: /payment/actuator/health/readiness
               port: http
             periodSeconds: 10
             timeoutSeconds: 2
             failureThreshold: 6
 
           livenessProbe:
-            tcpSocket:
+            httpGet:
+              path: /payment/actuator/health/liveness
               port: http
             initialDelaySeconds: 60
             periodSeconds: 20
@@ -375,8 +372,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: promotion
@@ -486,8 +481,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: tax
@@ -597,8 +590,24 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
+
+      initContainers:
+        - name: wait-for-elasticsearch
+          image: curlimages/curl:8.11.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              for i in $(seq 1 60); do
+                if curl -fsS http://elasticsearch:9200/_cluster/health >/dev/null; then
+                  exit 0
+                fi
+                echo "waiting for Elasticsearch health endpoint ($i/60)"
+                sleep 5
+              done
+              echo "Elasticsearch health endpoint was not reachable after 300 seconds" >&2
+              exit 1
 
       containers:
         - name: search

@@ -13,8 +13,6 @@ spec:
       labels:
         app: storefront-nextjs
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
       containers:
         - name: storefront-nextjs
           image: anhhnus/storefront:main
@@ -77,8 +75,6 @@ spec:
       labels:
         app: backoffice-nextjs
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
       containers:
         - name: backoffice-nextjs
           image: anhhnus/backoffice:main

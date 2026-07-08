@@ -41,8 +41,6 @@ spec:
       labels:
         app: postgres
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
       containers:
         - name: postgres
           image: anhhnus/yas-postgres:main
@@ -148,8 +146,6 @@ spec:
       labels:
         app: redis
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
       containers:
         - name: redis
           image: redis:7.4.1-alpine

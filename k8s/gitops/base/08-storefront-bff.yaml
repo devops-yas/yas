@@ -171,8 +171,23 @@ spec:
       labels:
         app: storefront-bff
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
+      initContainers:
+        - name: wait-for-keycloak
+          image: curlimages/curl:8.11.1
+          imagePullPolicy: IfNotPresent
+          command:
+            - sh
+            - -ec
+            - |
+              for i in $(seq 1 60); do
+                if curl -fsS http://keycloak:8080/realms/Yas/.well-known/openid-configuration >/dev/null; then
+                  exit 0
+                fi
+                echo "waiting for Keycloak OIDC discovery endpoint ($i/60)"
+                sleep 5
+              done
+              echo "Keycloak OIDC discovery endpoint was not reachable after 300 seconds" >&2
+              exit 1
       containers:
         - name: storefront-bff
           image: anhhnus/storefront-bff:main

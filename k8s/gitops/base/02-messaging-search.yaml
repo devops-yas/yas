@@ -26,8 +26,6 @@ spec:
       labels:
         app: zookeeper
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
       containers:
         - name: zookeeper
           image: debezium/zookeeper:2.7.3.Final
@@ -97,8 +95,6 @@ spec:
         app: kafka
     spec:
       enableServiceLinks: false
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
       containers:
         - name: kafka
           image: confluentinc/cp-kafka:7.7.1
@@ -198,8 +194,7 @@ spec:
       labels:
         app: elasticsearch
     spec:
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
+      enableServiceLinks: false
       initContainers:
         - name: set-vm-max-map-count
           image: busybox:1.36
@@ -220,7 +215,7 @@ spec:
               mountPath: /usr/share/elasticsearch/data
       containers:
         - name: elasticsearch
-          image: elasticsearch:9.2.3
+          image: docker.elastic.co/elasticsearch/elasticsearch:9.2.3
           imagePullPolicy: IfNotPresent
           ports:
             - name: http

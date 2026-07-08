@@ -66,8 +66,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: location
@@ -166,8 +164,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: product
@@ -266,8 +262,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: customer
@@ -366,8 +360,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: inventory
@@ -466,8 +458,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: cart
@@ -566,8 +556,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: order

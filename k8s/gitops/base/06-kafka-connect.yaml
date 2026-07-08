@@ -29,8 +29,6 @@ spec:
     spec:
       enableServiceLinks: false
 
-      nodeSelector:
-        kubernetes.io/hostname: yas-worker-32gb
 
       containers:
         - name: kafka-connect
