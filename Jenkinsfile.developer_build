@@ -120,16 +120,19 @@ pipeline {
     post {
         always {
             script {
+                def jenkinsBase = env.JENKINS_URL ? env.JENKINS_URL.replaceAll('/$', '') : ''
+                def destroyUrl = jenkinsBase ? "${jenkinsBase}/job/developer_destroy/" : "/job/developer_destroy/"
+                
                 echo "========================================================================"
                 echo " [SUCCESS] TRIỂN KHAI HOÀN TẤT VÀ SẴN SÀNG KIỂM THỬ (Namespace: ${params.DEVELOPER_NS})"
                 echo "========================================================================"
                 echo " 👉 Storefront UI     : http://storefront.yas.local:<NodePort>/"
                 echo " 👉 Swagger API       : http://api.yas.local:<NodePort>/swagger-ui.html"
-                echo " 👉 Dọn dẹp (Task 5)  : ${env.JENKINS_URL}job/developer_destroy/"
+                echo " 👉 Dọn dẹp (Task 5)  : ${destroyUrl}"
                 echo "========================================================================"
                 
                 // Set Build Description hiển thị Hyperlink trực tiếp trên trang Build Jenkins
-                currentBuild.description = "<a href='${env.JENKINS_URL}job/developer_destroy/' target='_blank'>🗑️ Bấm vào đây để mở Job dọn dẹp môi trường (developer_destroy)</a>"
+                currentBuild.description = "<a href='${destroyUrl}' target='_blank'>🗑️ Bấm vào đây để mở Job dọn dẹp môi trường (developer_destroy)</a>"
             }
         }
     }
