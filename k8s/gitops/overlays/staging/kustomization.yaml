@@ -8,46 +8,46 @@ resources:
 
 commonLabels:
   app.kubernetes.io/part-of: yas
-  app.kubernetes.io/environment: staging
+  app.kubernetes.io/environment: dev
 
 images:
   - name: anhhnus/product-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/cart-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/order-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/customer-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/inventory-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/tax-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/media-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/search-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/storefront-bff
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/storefront
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/backoffice-bff
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/backoffice
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/sampledata-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/location-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/payment-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/payment-paypal-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/promotion-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/rating-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/recommendation-service
-    newTag: v0.0.0
+    newTag: main
   - name: anhhnus/webhook-service
-    newTag: v0.0.0
+    newTag: main
