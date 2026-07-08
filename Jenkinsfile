@@ -67,10 +67,9 @@ pipeline {
     parameters {
         choice(
             name: 'SERVICE',
-            choices: ['auto', 'product', 'order', 'customer', 'inventory', 'location', 'media', 
-                     'payment', 'payment-paypal', 'promotion', 'rating', 'search', 'cart', 
-                     'recommendation', 'delivery', 'sampledata', 'common-library', 
-                     'backoffice-bff', 'storefront-bff', 'webhook', 'tax'],
+            choices: ['auto', 'product', 'order', 'customer', 'inventory', 'media', 
+                     'payment', 'search', 'cart', 'sampledata', 'common-library', 
+                     'backoffice-bff', 'storefront-bff', 'tax'],
             description: 'Service to build (auto = detect changes)'
         )
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test execution')
@@ -542,10 +541,9 @@ pipeline {
             steps {
                 script {
                     def services = [
-                        'product', 'order', 'customer', 'inventory', 'location',
-                        'media', 'payment', 'promotion', 'rating',
-                        'search', 'cart', 'recommendation', 'sampledata', 'backoffice-bff',
-                        'storefront-bff', 'webhook', 'tax', 'backoffice', 'storefront'
+                        'product', 'order', 'customer', 'inventory',
+                        'media', 'payment', 'search', 'cart', 'sampledata', 'backoffice-bff',
+                        'storefront-bff', 'tax', 'backoffice', 'storefront'
                     ]
                     
                     def servicesToDeploy = []

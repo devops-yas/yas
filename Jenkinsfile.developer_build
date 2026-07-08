@@ -58,13 +58,8 @@ pipeline {
                         'storefront-ui': params.STOREFRONT_TAG,
                         'backoffice-bff': params.BACKOFFICE_BFF_TAG,
                         'backoffice-ui': params.BACKOFFICE_TAG,
-                        'location': params.DEFAULT_ALL_OTHER_TAG,
-                        'promotion': params.DEFAULT_ALL_OTHER_TAG,
-                        'rating': params.DEFAULT_ALL_OTHER_TAG,
                         'search': params.DEFAULT_ALL_OTHER_TAG,
-                        'recommendation': params.DEFAULT_ALL_OTHER_TAG,
-                        'sampledata': params.DEFAULT_ALL_OTHER_TAG,
-                        'webhook': params.DEFAULT_ALL_OTHER_TAG
+                        'sampledata': params.DEFAULT_ALL_OTHER_TAG
                     ]
                     
                     withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBE_CONFIG_PATH')]) {
