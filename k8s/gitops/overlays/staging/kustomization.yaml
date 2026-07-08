@@ -4,11 +4,12 @@ kind: Kustomization
 namespace: staging
 
 resources:
+  - namespace.yaml
   - ../../base
 
 commonLabels:
   app.kubernetes.io/part-of: yas
-  app.kubernetes.io/environment: dev
+  app.kubernetes.io/environment: staging
 
 images:
   - name: anhhnus/product-service

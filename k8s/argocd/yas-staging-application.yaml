@@ -7,7 +7,7 @@ spec:
   project: yas
   source:
     repoURL: https://github.com/devops-yas/yas.git
-    targetRevision: main
+    targetRevision: advanced-argocd
     path: k8s/gitops/overlays/staging
   destination:
     server: https://kubernetes.default.svc
