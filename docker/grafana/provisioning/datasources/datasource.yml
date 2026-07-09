@@ -31,6 +31,8 @@ datasources:
       uid: tempo
       jsonData:
           httpMethod: GET
+          nodeGraph:
+            enabled: true
           tracesToLogs:
               datasourceUid: 'loki'
           serviceMap:

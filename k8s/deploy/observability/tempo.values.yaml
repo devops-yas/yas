@@ -1,4 +1,10 @@
 tempo:
   metricsGenerator:
     enabled: true
-    remoteWriteUrl: "http://prometheus-kube-prometheus-prometheus:9090/api/v1/write"
+    remoteWriteUrl: "http://prometheus-kube-prometheus-prometheus.observability.svc.cluster.local:9090/api/v1/write"
+  overrides:
+    defaults:
+      metrics_generator:
+        processors:
+          - service-graphs
+          - span-metrics

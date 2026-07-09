@@ -2,20 +2,57 @@ hostname: &hostname grafana.yas.local.com
 prometheus:
   prometheusSpec:
     enableRemoteWriteReceiver: true
+prometheus-node-exporter:
+  hostRootFsMount:
+    mountPropagation: None
 grafana:
   assertNoLeakedSecrets: false
   grafana.ini:
     database:
       type: postgres
-      host: postgresql.postgres:5432
+      host: postgresql.postgres.svc.cluster.local:5432
       name: grafana
       user: yasadminuser
       password: admin
       ssl_mode: require
   adminUser: admin
   adminPassword: admin
+  sidecar:
+    datasources:
+      defaultDatasourceEnabled: true
+      uid: prometheus
   ingress:
-    ingressClassName: nginx
+    ingressClassName: traefik
     enabled: true
     hosts:
       - *hostname
+  additionalDataSources:
+    - name: Loki
+      type: loki
+      uid: loki
+      url: http://loki-gateway.observability.svc.cluster.local:80
+      access: proxy
+      isDefault: false
+    - name: Tempo
+      type: tempo
+      uid: tempo
+      url: http://tempo.observability.svc.cluster.local:3200
+      access: proxy
+      isDefault: false
+      jsonData:
+        nodeGraph:
+          enabled: true
+        serviceMap:
+          datasourceUid: prometheus
+        tracesToLogsV2:
+          datasourceUid: loki
+          filterByTraceID: true
+          filterBySpanID: false
+          tags:
+            - key: service.name
+              value: container
+            - key: k8s.namespace.name
+              value: namespace
+
+
+

@@ -5,6 +5,7 @@ read:
 backend:
   replicas: 1
 loki:
+  useTestSchema: true
   commonConfig:
     replication_factor: 1
   auth_enabled: false
@@ -16,7 +17,15 @@ minio:
   enabled: true
 
 monitoring:
+  lokiCanary:
+    enabled: false
   selfMonitoring:
     enabled: false
     grafanaAgent:
       installOperator: false
+
+chunksCache:
+  enabled: false
+
+lokiCanary:
+  enabled: false
