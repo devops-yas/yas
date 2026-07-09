@@ -1,0 +1,88 @@
+# Allowed curl client. It is injected into the mesh and uses the service account
+# listed in backoffice-bff-authorization-policy.yaml.
+#
+# Example:
+# kubectl -n yas exec deploy/backoffice-bff-allowed-curl -c curl -- \
+#   curl -i --max-time 5 http://backoffice-bff
+# Expected: the request reaches backoffice-bff. The HTTP status depends on app
+# auth/session behavior, but Linkerd policy should not block it.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backoffice-bff-allowed-curl
+  namespace: yas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backoffice-bff-allowed-curl
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backoffice-bff-allowed-curl
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: enabled
+      labels:
+        app: backoffice-bff-allowed-curl
+    spec:
+      serviceAccountName: backoffice-bff-allowed-curl
+      containers:
+        - name: curl
+          image: curlimages/curl:8.11.1
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "3600"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+---
+# Denied curl client. It is also injected into the mesh, but its service account
+# is not listed in the MeshTLSAuthentication allow list.
+#
+# Example:
+# kubectl -n yas exec deploy/backoffice-bff-denied-curl -c curl -- \
+#   curl -i --max-time 5 http://backoffice-bff
+# Expected: Linkerd policy denies the request, commonly as HTTP 403.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: backoffice-bff-denied-curl
+  namespace: yas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backoffice-bff-denied-curl
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backoffice-bff-denied-curl
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: enabled
+      labels:
+        app: backoffice-bff-denied-curl
+    spec:
+      serviceAccountName: backoffice-bff-denied-curl
+      containers:
+        - name: curl
+          image: curlimages/curl:8.11.1
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "3600"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

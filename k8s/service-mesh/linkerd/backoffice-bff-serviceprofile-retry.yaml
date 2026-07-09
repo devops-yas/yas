@@ -1,0 +1,31 @@
+# ServiceProfile for backoffice-bff.yas.svc.cluster.local.
+# Linkerd can retry requests only for routes marked isRetryable. The
+# responseClasses section marks HTTP 5xx responses as failures for metrics and
+# retry classification.
+#
+# TODO: Replace or extend /api/.* with a stable endpoint that intentionally
+# returns HTTP 500 before collecting retry evidence. This repository does not
+# define a dedicated failing endpoint for backoffice-bff, so this is a safe demo
+# template rather than proof that retry behavior was observed in the cluster.
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: backoffice-bff.yas.svc.cluster.local
+  namespace: yas
+spec:
+  routes:
+    - name: retryable-api-requests
+      condition:
+        method: GET
+        pathRegex: /api/.*
+      isRetryable: true
+      responseClasses:
+        - condition:
+            status:
+              min: 500
+              max: 599
+          isFailure: true
+  retryBudget:
+    retryRatio: 0.2
+    minRetriesPerSecond: 1
+    ttl: 10s

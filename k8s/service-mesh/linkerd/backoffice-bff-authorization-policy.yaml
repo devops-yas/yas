@@ -1,0 +1,28 @@
+# Demo identity used by the allowed curl workload.
+# Requests from this meshed service account should be accepted by Linkerd policy.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: MeshTLSAuthentication
+metadata:
+  name: backoffice-bff-allowed-clients
+  namespace: yas
+spec:
+  identities:
+    - backoffice-bff-allowed-curl.yas.serviceaccount.identity.linkerd.cluster.local
+---
+# Allows only the explicitly listed meshed identities to call the
+# backoffice-bff Server. A meshed pod using any other service account, such as
+# backoffice-bff-denied-curl in curl-test-pod.yaml, is expected to be denied.
+apiVersion: policy.linkerd.io/v1alpha1
+kind: AuthorizationPolicy
+metadata:
+  name: backoffice-bff-allow-selected-mtls-clients
+  namespace: yas
+spec:
+  targetRef:
+    group: policy.linkerd.io
+    kind: Server
+    name: backoffice-bff-http
+  requiredAuthenticationRefs:
+    - group: policy.linkerd.io
+      kind: MeshTLSAuthentication
+      name: backoffice-bff-allowed-clients

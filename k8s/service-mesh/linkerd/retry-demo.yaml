@@ -1,0 +1,169 @@
+# Controlled Linkerd retry demo.
+# The first GET /flaky handled by the server returns HTTP 500, then subsequent
+# calls return HTTP 200. With the ServiceProfile route marked retryable, a
+# meshed curl request should eventually receive HTTP 200 and the server logs
+# should show both the initial 500 and the retried 200.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: linkerd-retry-demo-server
+  namespace: yas
+data:
+  server.py: |
+    from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+    import sys
+    import threading
+
+    lock = threading.Lock()
+    flaky_count = 0
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            global flaky_count
+            if self.path != "/flaky":
+                self.send_response(404)
+                self.end_headers()
+                self.wfile.write(b"not found\n")
+                print(f"{self.path} -> 404", flush=True)
+                return
+
+            with lock:
+                flaky_count += 1
+                current = flaky_count
+
+            if current == 1:
+                self.send_response(500)
+                self.end_headers()
+                self.wfile.write(b"first request returns 500\n")
+                print("flaky request #1 -> 500", flush=True)
+                return
+
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(f"retry succeeded after request #{current}\n".encode())
+            print(f"flaky request #{current} -> 200", flush=True)
+
+        def log_message(self, fmt, *args):
+            sys.stdout.write("access: " + fmt % args + "\n")
+            sys.stdout.flush()
+
+    ThreadingHTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkerd-retry-demo
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linkerd-retry-demo
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: enabled
+      labels:
+        app: linkerd-retry-demo
+    spec:
+      containers:
+        - name: server
+          image: python:3.12-alpine
+          imagePullPolicy: IfNotPresent
+          command: ["python", "/app/server.py"]
+          ports:
+            - name: http
+              containerPort: 8080
+          volumeMounts:
+            - name: server
+              mountPath: /app
+              readOnly: true
+          resources:
+            requests:
+              cpu: 20m
+              memory: 64Mi
+            limits:
+              cpu: 200m
+              memory: 128Mi
+      volumes:
+        - name: server
+          configMap:
+            name: linkerd-retry-demo-server
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: linkerd-retry-demo
+  namespace: yas
+  annotations:
+    retry.linkerd.io/http: 5xx
+    retry.linkerd.io/limit: "2"
+    retry.linkerd.io/timeout: 1s
+spec:
+  selector:
+    app: linkerd-retry-demo
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8080
+  type: ClusterIP
+---
+apiVersion: linkerd.io/v1alpha2
+kind: ServiceProfile
+metadata:
+  name: linkerd-retry-demo.yas.svc.cluster.local
+  namespace: yas
+spec:
+  routes:
+    - name: flaky
+      condition:
+        method: GET
+        pathRegex: /flaky
+      isRetryable: true
+      responseClasses:
+        - condition:
+            status:
+              min: 500
+              max: 599
+          isFailure: true
+  retryBudget:
+    retryRatio: 1
+    minRetriesPerSecond: 2
+    ttl: 10s
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: linkerd-retry-client
+  namespace: yas
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: linkerd-retry-client
+  namespace: yas
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: linkerd-retry-client
+  template:
+    metadata:
+      annotations:
+        linkerd.io/inject: enabled
+      labels:
+        app: linkerd-retry-client
+    spec:
+      serviceAccountName: linkerd-retry-client
+      containers:
+        - name: curl
+          image: curlimages/curl:8.11.1
+          imagePullPolicy: IfNotPresent
+          command: ["sleep", "3600"]
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi

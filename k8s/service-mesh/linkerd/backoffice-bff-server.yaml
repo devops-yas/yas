@@ -1,0 +1,14 @@
+# Defines the inbound HTTP port that Linkerd policy protects for backoffice-bff.
+# Linkerd will apply AuthorizationPolicy rules to pods matching app=backoffice-bff
+# on the Kubernetes Service port 80.
+apiVersion: policy.linkerd.io/v1beta3
+kind: Server
+metadata:
+  name: backoffice-bff-http
+  namespace: yas
+spec:
+  podSelector:
+    matchLabels:
+      app: backoffice-bff
+  port: 80
+  proxyProtocol: HTTP/1

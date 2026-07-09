@@ -153,6 +153,8 @@ spec:
       app: backoffice-bff
   template:
     metadata:
+      annotations:
+        linkerd.io/inject: enabled
       labels:
         app: backoffice-bff
     spec:
