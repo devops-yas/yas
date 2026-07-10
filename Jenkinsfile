@@ -351,7 +351,7 @@ pipeline {
                     when { changeset "media/**" }
                     steps {
                         echo 'Changes detected in Media Service. Starting Tests...'
-                            sh 'mvn verify -pl media -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl media -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -359,7 +359,7 @@ pipeline {
                     when { changeset "product/**" }
                     steps {
                         echo 'Changes detected in Product Service. Starting Tests...'
-                            sh 'mvn verify -pl product -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl product -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -367,7 +367,7 @@ pipeline {
                     when { changeset "cart/**" }
                     steps {
                         echo 'Changes detected in Cart Service. Starting Tests...'
-                            sh 'mvn verify -pl cart -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl cart -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -375,7 +375,7 @@ pipeline {
                     when { changeset "rating/**" }
                     steps {
                         echo 'Changes detected in Rating Service. Starting Tests...'
-                            sh 'mvn verify -pl rating -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl rating -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -383,7 +383,7 @@ pipeline {
                     when { changeset "tax/**" }
                     steps {
                         echo 'Changes detected in Tax Service. Starting Tests...'
-                            sh 'mvn verify -pl tax -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl tax -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -391,7 +391,7 @@ pipeline {
                     when { changeset "webhook/**" }
                     steps {
                         echo 'Changes detected in Webhook Service. Starting Tests...'
-                            sh 'mvn verify -pl webhook -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl webhook -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -399,7 +399,7 @@ pipeline {
                     when { changeset "promotion/**" }
                     steps {
                         echo 'Changes detected in Promotion Service. Starting Tests...'
-                            sh 'mvn verify -pl promotion -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl promotion -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -407,7 +407,7 @@ pipeline {
                     when { changeset "location/**" }
                     steps {
                         echo 'Changes detected in Location Service. Starting Tests...'
-                            sh 'mvn verify -pl location -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl location -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -415,7 +415,7 @@ pipeline {
                     when { changeset "inventory/**" }
                     steps {
                         echo 'Changes detected in Inventory Service. Starting Tests...'
-                            sh 'mvn verify -pl inventory -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl inventory -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -423,7 +423,7 @@ pipeline {
                     when { changeset "backoffice/**" }
                     steps {
                         echo 'Changes detected in Backoffice Service. Starting Tests...'
-                            sh 'mvn verify -pl backoffice -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl backoffice -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -431,7 +431,7 @@ pipeline {
                     when { changeset "backoffice-bff/**" }
                     steps {
                         echo 'Changes detected in Backoffice BFF. Starting Tests...'
-                            sh 'mvn verify -pl backoffice-bff -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl backoffice-bff -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -439,7 +439,7 @@ pipeline {
                     when { changeset "delivery/**" }
                     steps {
                         echo 'Changes detected in Delivery Service. Starting Tests...'
-                            sh 'mvn verify -pl delivery -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl delivery -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -447,7 +447,7 @@ pipeline {
                     when { changeset "identity/**" }
                     steps {
                         echo 'Changes detected in Identity Service. Starting Tests...'
-                            sh 'mvn verify -pl identity -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl identity -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -455,7 +455,7 @@ pipeline {
                     when { changeset "payment/**" }
                     steps {
                         echo 'Changes detected in Payment Service. Starting Tests...'
-                            sh 'mvn verify -pl payment -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl payment -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -463,7 +463,7 @@ pipeline {
                     when { changeset "payment-paypal/**" }
                     steps {
                         echo 'Changes detected in Payment Paypal Service. Starting Tests...'
-                            sh 'mvn verify -pl payment-paypal -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl payment-paypal -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -471,7 +471,7 @@ pipeline {
                     when { changeset "recommendation/**" }
                     steps {
                         echo 'Changes detected in Recommendation Service. Starting Tests...'
-                            sh 'mvn verify -pl recommendation -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl recommendation -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -479,7 +479,7 @@ pipeline {
                     when { changeset "sampledata/**" }
                     steps {
                         echo 'Changes detected in Sampledata Service. Starting Tests...'
-                            sh 'mvn verify -pl sampledata -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl sampledata -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -487,7 +487,7 @@ pipeline {
                     when { changeset "search/**" }
                     steps {
                         echo 'Changes detected in Search Service. Starting Tests...'
-                            sh 'mvn verify -pl search -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl search -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -495,7 +495,7 @@ pipeline {
                     when { changeset "storefront-bff/**" }
                     steps {
                         echo 'Changes detected in Storefront BFF. Starting Tests...'
-                            sh 'mvn verify -pl storefront-bff -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl storefront-bff -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -503,7 +503,7 @@ pipeline {
                     when { changeset "customer/**" }
                     steps {
                         echo 'Changes detected in Customer Service. Starting Tests...'
-                            sh 'mvn verify -pl customer -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl customer -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -511,7 +511,7 @@ pipeline {
                     when { changeset "order/**" }
                     steps {
                         echo 'Changes detected in Order Service. Starting Tests...'
-                            sh 'mvn verify -pl order -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl order -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
