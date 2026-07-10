@@ -556,12 +556,6 @@ pipeline {
                         servicesToDeploy = [params.SERVICE]
                     }
 
-                    // Nếu vẫn hoàn toàn trống, ta ép nạp luôn 'cart' hoặc service bạn đang trực tiếp test để thông luồng pipeline
-                    if (servicesToDeploy.isEmpty()) {
-                        echo "[WARNING] Không tự động nhận diện được changeset qua biến. Ép cấu hình chạy thử nghiệm cho service: cart"
-                        servicesToDeploy = ['cart']
-                    }
-
                     echo "[INFO] Danh sách dịch vụ sẽ được đóng gói và deploy thực tế: ${servicesToDeploy}"
 
                     def mavenServices = servicesToDeploy.findAll { fileExists("${it}/pom.xml") }.join(',')
@@ -655,10 +649,13 @@ pipeline {
                 
                 if (jacocoReports) {
                     jacocoReports.split("\n").each { reportPath ->
-                        // Trích xuất tên service từ đường dẫn (ví dụ: ./cart/target/... -> cart)
-                        def serviceName = reportPath.split('/')[1]
-                        def reportDir = "${serviceName}/target/site/jacoco"
-                        
+                        // reportPath example: ./automation-ui/backoffice/target/site/jacoco/index.html
+                        // Extract module relative path (everything between ./ and /target)
+                        def modulePath = reportPath.replaceFirst(/^\.\//, '').replaceAll(/\/target\/site\/jacoco\/index\.html$/, '')
+                        // Use last path segment as display name (e.g., 'backoffice')
+                        def serviceName = modulePath.tokenize('/')[-1]
+                        def reportDir = "${modulePath}/target/site/jacoco"
+
                         publishHTML([
                             allowMissing: true,
                             alwaysLinkToLastBuild: true,
