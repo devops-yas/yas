@@ -36,7 +36,7 @@ spec:
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           volumeMounts:
             - name: {{ include "zookeeper.fullname" . }}-persistent-storage
-              mountPath: /usr/local/zookeeper-data
+              mountPath: /data
           env:
             - name: ZOOKEEPER_CLIENT_PORT
               value: "2181"

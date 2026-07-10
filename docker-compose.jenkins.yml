@@ -28,8 +28,8 @@ services:
       - jenkins_home:/var/jenkins_home
       # Docker socket for Docker-in-Docker (DinD) - allows Jenkins to build images
       - /var/run/docker.sock:/var/run/docker.sock
-      # Docker CLI for DinD
-      - /usr/bin/docker:/usr/bin/docker
+      # Docker CLI đã được cài trực tiếp trong image thông qua Dockerfile (không cần mount từ host)
+      # - /usr/bin/docker:/usr/bin/docker
     
     # Environment variables
     environment:
@@ -60,33 +60,4 @@ networks:
     external: true
     name: yas-network
 
-# =====================
-# Usage Instructions:
-# =====================
-# 1. Start Jenkins container:
-#    docker network create yas-network
-#    docker-compose -f docker-compose.jenkins.yml up -d
-#
-# 2. Get initial admin password (needed for first login):
-#    docker-compose -f docker-compose.jenkins.yml exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword
-#
-# 3. Access Jenkins:
-#    http://localhost:8080
-#    Username: devops
-#    Password: Password123@
-#
-# 4. View logs:
-#    docker-compose -f docker-compose.jenkins.yml logs -f jenkins
-#
-# 5. Stop Jenkins:
-#    docker-compose -f docker-compose.jenkins.yml down
-#
-# 6. Stop and remove volumes (clean slate):
-#    docker-compose -f docker-compose.jenkins.yml down -v
-#
-# Notes:
-# - Docker-in-Docker support allows Jenkins to build and push Docker images
-# - Jenkins home data is persisted in the 'jenkins_home' volume
-# - Jenkins connects to the existing 'yas-network' for communication with other services
-# - Initial setup may take a few minutes as plugins are downloaded
-# - On Windows (WSL2), ensure Docker daemon is running
+

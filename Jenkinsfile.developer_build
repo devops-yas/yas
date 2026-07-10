@@ -1,0 +1,132 @@
+pipeline {
+    agent {
+        docker {
+            image 'docker.io/anhhnus/maven-kubectl:3.9-21'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --network host --privileged --user root'
+        }
+    }
+    
+    options {
+        timestamps()
+        timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
+    }
+    
+    // Tham số đầu vào cho developer theo đúng Yêu cầu 4 của Đồ án
+    parameters {
+        string(name: 'DEVELOPER_NS', defaultValue: 'yas-dev', description: 'Namespace trên cụm K3s dành riêng cho developer kiểm thử (mặc định: yas-dev)')
+        string(name: 'TAX_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Tax (mặc định: main, điền tên branch/commit id nếu muốn test nhánh riêng vd: dev_tax_service)')
+        string(name: 'ORDER_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Order (mặc định: main)')
+        string(name: 'CART_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Cart (mặc định: main)')
+        string(name: 'PRODUCT_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Product (mặc định: main)')
+        string(name: 'CUSTOMER_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Customer (mặc định: main)')
+        string(name: 'INVENTORY_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Inventory (mặc định: main)')
+        string(name: 'MEDIA_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Media (mặc định: main)')
+        string(name: 'PAYMENT_TAG', defaultValue: 'main', description: 'Tag image cho dịch vụ Payment (mặc định: main)')
+        string(name: 'STOREFRONT_BFF_TAG', defaultValue: 'main', description: 'Tag image cho Storefront BFF (mặc định: main)')
+        string(name: 'STOREFRONT_TAG', defaultValue: 'main', description: 'Tag image cho Storefront UI (mặc định: main)')
+        string(name: 'BACKOFFICE_BFF_TAG', defaultValue: 'main', description: 'Tag image cho Backoffice BFF (mặc định: main)')
+        string(name: 'BACKOFFICE_TAG', defaultValue: 'main', description: 'Tag image cho Backoffice UI (mặc định: main)')
+        string(name: 'DEFAULT_ALL_OTHER_TAG', defaultValue: 'main', description: 'Tag mặc định cho tất cả các service khác không có parameter ở trên')
+    }
+    
+    environment {
+        REGISTRY_URL = 'docker.io'
+        DOCKER_NAMESPACE = 'anhhnus'
+    }
+    
+    stages {
+        stage('Deploy to Developer Workspace (K3s)') {
+            steps {
+                script {
+                    echo "=========================================================="
+                    echo "[JOB DEVELOPER_BUILD] Khởi tạo triển khai cho Developer"
+                    echo "Namespace đích: ${params.DEVELOPER_NS}"
+                    echo "=========================================================="
+                    
+                    // Bản đồ ánh xạ service và tag tương ứng từ tham số
+                    def serviceTagMap = [
+                        'tax': params.TAX_TAG,
+                        'order': params.ORDER_TAG,
+                        'cart': params.CART_TAG,
+                        'product': params.PRODUCT_TAG,
+                        'customer': params.CUSTOMER_TAG,
+                        'inventory': params.INVENTORY_TAG,
+                        'media': params.MEDIA_TAG,
+                        'payment': params.PAYMENT_TAG,
+                        'storefront-bff': params.STOREFRONT_BFF_TAG,
+                        'storefront-ui': params.STOREFRONT_TAG,
+                        'backoffice-bff': params.BACKOFFICE_BFF_TAG,
+                        'backoffice-ui': params.BACKOFFICE_TAG,
+                        'search': params.DEFAULT_ALL_OTHER_TAG,
+                        'sampledata': params.DEFAULT_ALL_OTHER_TAG
+                    ]
+                    
+                    withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBE_CONFIG_PATH')]) {
+                        sh 'curl -k https://100.118.54.48:6443/livez || true'
+                        
+                        // Kiểm tra nhanh và tự động tải về kubectl nếu trong agent chưa có
+                        sh '''
+                            if ! command -v kubectl > /dev/null 2>&1; then
+                                echo "[WARNING] kubectl chưa có sẵn. Đang tự động tải về kubectl..."
+                                curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+                                chmod +x kubectl
+                                mv kubectl /usr/local/bin/ || mv kubectl /usr/bin/
+                            fi
+                        '''
+                        
+                        // 1. Đảm bảo namespace tồn tại & tự động bật lại pod nếu trước đó bị tắt bởi job destroy
+                        sh """
+                            kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true create namespace ${params.DEVELOPER_NS} --dry-run=client -o yaml | kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true apply -f -
+                            kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true scale deployment --all --replicas=1 -n ${params.DEVELOPER_NS} || true
+                        """
+                        
+                        // 2. Cập nhật image cho từng service
+                        serviceTagMap.each { serviceKey, tagValue ->
+                            // Xác định deployment name, container name và docker image name trên Docker Hub
+                            def deployName = serviceKey
+                            def containerName = serviceKey
+                            def dockerRepo = "${serviceKey}-service"
+                            
+                            if (serviceKey == 'storefront-bff' || serviceKey == 'backoffice-bff') {
+                                dockerRepo = serviceKey
+                            } else if (serviceKey == 'storefront-ui') {
+                                deployName = 'storefront-nextjs'
+                                containerName = 'storefront-nextjs'
+                                dockerRepo = 'storefront'
+                            } else if (serviceKey == 'backoffice-ui') {
+                                deployName = 'backoffice-nextjs'
+                                containerName = 'backoffice-nextjs'
+                                dockerRepo = 'backoffice'
+                            }
+                            
+                            def imageRepo = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerRepo}:${tagValue}"
+                            echo "--> Deploying [${deployName}] với Image: ${imageRepo} vào Namespace [${params.DEVELOPER_NS}]"
+                            
+                            // Thực thi cập nhật image K8s (nếu deployment đã tồn tại)
+                            sh """
+                                kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
+                                set image deployment/${deployName} \
+                                ${containerName}=${imageRepo} -n ${params.DEVELOPER_NS} || \
+                                echo "[INFO] Deployment '${deployName}' chưa có sẵn trong namespace '${params.DEVELOPER_NS}', bỏ qua set image."
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            script {
+                echo "========================================================================"
+                echo " [SUCCESS] TRIỂN KHAI HOÀN TẤT VÀ SẴN SÀNG KIỂM THỬ (Namespace: ${params.DEVELOPER_NS})"
+                echo "========================================================================"
+                
+                // Set Build Description hiển thị Hyperlink trực tiếp trên trang Build Jenkins (Yêu cầu 5)
+                currentBuild.description = "<a href='/job/developer_destroy/' target='_blank'>🗑️ Mở Job dọn dẹp môi trường (developer_destroy)</a>"
+            }
+        }
+    }
+}

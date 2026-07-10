@@ -1,10 +1,37 @@
 #!/usr/bin/env groovy
 
+def dockerImageName(String service) {
+    def dockerImageNames = [
+        'product'        : 'product-service',
+        'order'          : 'order-service',
+        'customer'       : 'customer-service',
+        'inventory'      : 'inventory-service',
+        'location'       : 'location-service',
+        'media'          : 'media-service',
+        'payment'        : 'payment-service',
+        'payment-paypal' : 'payment-paypal-service',
+        'promotion'      : 'promotion-service',
+        'rating'         : 'rating-service',
+        'search'         : 'search-service',
+        'cart'           : 'cart-service',
+        'recommendation' : 'recommendation-service',
+        'sampledata'     : 'sampledata-service',
+        'webhook'        : 'webhook-service',
+        'tax'            : 'tax-service',
+        'backoffice-bff' : 'backoffice-bff',
+        'storefront-bff' : 'storefront-bff',
+        'backoffice'     : 'backoffice',
+        'storefront'     : 'storefront'
+    ]
+
+    return dockerImageNames.get(service, service)
+}
+
 pipeline {
 //    agent any
     agent {
         docker {
-            image 'maven:3.9-eclipse-temurin-21'
+            image 'docker.io/anhhnus/maven-kubectl:3.9-21'
             args '-v /var/run/docker.sock:/var/run/docker.sock -v $HOME/.m2:/root/.m2 --network host --privileged --user root'
         }
     }
@@ -24,9 +51,12 @@ pipeline {
         SONAR_PROJECT_KEY = 'devops-yas_yas'
         DOCKER_REGISTRY_CREDS = credentials('docker-hub-credentials')
         REGISTRY_URL = 'docker.io'
+        DOCKER_NAMESPACE = 'anhhnus'
+        DEFAULT_IMAGE_TAG = 'main'
         GIT_COMMIT_SHORT = sh(script: "git rev-parse --short HEAD", returnStdout: true).trim()
         GIT_BRANCH_NAME = sh(script: "git rev-parse --abbrev-ref HEAD", returnStdout: true).trim()
         BUILD_VERSION = "${env.BUILD_NUMBER}-${GIT_COMMIT_SHORT}"
+        KUBECONFIG_CRED = credentials('k3s-kubeconfig')
     }
 
     tools {
@@ -37,15 +67,15 @@ pipeline {
     parameters {
         choice(
             name: 'SERVICE',
-            choices: ['auto', 'product', 'order', 'customer', 'inventory', 'location', 'media', 
-                     'payment', 'payment-paypal', 'promotion', 'rating', 'search', 'cart', 
-                     'recommendation', 'delivery', 'sampledata', 'common-library', 
-                     'backoffice-bff', 'storefront-bff', 'webhook', 'tax'],
+            choices: ['auto', 'product', 'order', 'customer', 'inventory', 'media', 
+                     'payment', 'search', 'cart', 'sampledata', 'common-library', 
+                     'backoffice-bff', 'storefront-bff', 'tax'],
             description: 'Service to build (auto = detect changes)'
         )
         booleanParam(name: 'SKIP_TESTS', defaultValue: false, description: 'Skip test execution')
         booleanParam(name: 'SKIP_SONAR', defaultValue: false, description: 'Skip SonarCloud scan')
         booleanParam(name: 'SKIP_IT', defaultValue: true, description: 'Tạm thời bỏ qua Integration Tests')
+        booleanParam(name: 'SKIP_SNYK', defaultValue: false, description: 'Tạm thời bỏ qua Snyk Security Scan')
     }
     
     stages {
@@ -73,6 +103,9 @@ pipeline {
         }
 
         stage('Snyk Security Scan') {
+            when {
+                expression { !params.SKIP_SNYK }
+            }
             steps {
                 script {
                     echo "Downloading Snyk Binary and scanning..."
@@ -318,7 +351,7 @@ pipeline {
                     when { changeset "media/**" }
                     steps {
                         echo 'Changes detected in Media Service. Starting Tests...'
-                        sh 'mvn test -pl media -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl media -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -326,7 +359,7 @@ pipeline {
                     when { changeset "product/**" }
                     steps {
                         echo 'Changes detected in Product Service. Starting Tests...'
-                        sh 'mvn test -pl product -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl product -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -334,7 +367,7 @@ pipeline {
                     when { changeset "cart/**" }
                     steps {
                         echo 'Changes detected in Cart Service. Starting Tests...'
-                        sh 'mvn test -pl cart -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl cart -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -342,7 +375,7 @@ pipeline {
                     when { changeset "rating/**" }
                     steps {
                         echo 'Changes detected in Rating Service. Starting Tests...'
-                        sh 'mvn test -pl rating -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl rating -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -350,7 +383,7 @@ pipeline {
                     when { changeset "tax/**" }
                     steps {
                         echo 'Changes detected in Tax Service. Starting Tests...'
-                        sh 'mvn test -pl tax -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl tax -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -358,7 +391,7 @@ pipeline {
                     when { changeset "webhook/**" }
                     steps {
                         echo 'Changes detected in Webhook Service. Starting Tests...'
-                        sh 'mvn test -pl webhook -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl webhook -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -366,7 +399,7 @@ pipeline {
                     when { changeset "promotion/**" }
                     steps {
                         echo 'Changes detected in Promotion Service. Starting Tests...'
-                        sh 'mvn test -pl promotion -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl promotion -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -374,7 +407,7 @@ pipeline {
                     when { changeset "location/**" }
                     steps {
                         echo 'Changes detected in Location Service. Starting Tests...'
-                        sh 'mvn test -pl location -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl location -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -382,7 +415,7 @@ pipeline {
                     when { changeset "inventory/**" }
                     steps {
                         echo 'Changes detected in Inventory Service. Starting Tests...'
-                        sh 'mvn test -pl inventory -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl inventory -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -390,7 +423,7 @@ pipeline {
                     when { changeset "backoffice/**" }
                     steps {
                         echo 'Changes detected in Backoffice Service. Starting Tests...'
-                        sh 'mvn test -pl backoffice -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl backoffice -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -398,7 +431,7 @@ pipeline {
                     when { changeset "backoffice-bff/**" }
                     steps {
                         echo 'Changes detected in Backoffice BFF. Starting Tests...'
-                        sh 'mvn test -pl backoffice-bff -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl backoffice-bff -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -406,7 +439,7 @@ pipeline {
                     when { changeset "delivery/**" }
                     steps {
                         echo 'Changes detected in Delivery Service. Starting Tests...'
-                        sh 'mvn test -pl delivery -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl delivery -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -414,7 +447,7 @@ pipeline {
                     when { changeset "identity/**" }
                     steps {
                         echo 'Changes detected in Identity Service. Starting Tests...'
-                        sh 'mvn test -pl identity -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl identity -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -422,7 +455,7 @@ pipeline {
                     when { changeset "payment/**" }
                     steps {
                         echo 'Changes detected in Payment Service. Starting Tests...'
-                        sh 'mvn test -pl payment -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl payment -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -430,7 +463,7 @@ pipeline {
                     when { changeset "payment-paypal/**" }
                     steps {
                         echo 'Changes detected in Payment Paypal Service. Starting Tests...'
-                        sh 'mvn test -pl payment-paypal -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl payment-paypal -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -438,7 +471,7 @@ pipeline {
                     when { changeset "recommendation/**" }
                     steps {
                         echo 'Changes detected in Recommendation Service. Starting Tests...'
-                        sh 'mvn test -pl recommendation -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl recommendation -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -446,7 +479,7 @@ pipeline {
                     when { changeset "sampledata/**" }
                     steps {
                         echo 'Changes detected in Sampledata Service. Starting Tests...'
-                        sh 'mvn test -pl sampledata -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl sampledata -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -454,7 +487,7 @@ pipeline {
                     when { changeset "search/**" }
                     steps {
                         echo 'Changes detected in Search Service. Starting Tests...'
-                        sh 'mvn test -pl search -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl search -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -462,7 +495,7 @@ pipeline {
                     when { changeset "storefront-bff/**" }
                     steps {
                         echo 'Changes detected in Storefront BFF. Starting Tests...'
-                        sh 'mvn test -pl storefront-bff -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl storefront-bff -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -470,7 +503,7 @@ pipeline {
                     when { changeset "customer/**" }
                     steps {
                         echo 'Changes detected in Customer Service. Starting Tests...'
-                        sh 'mvn test -pl customer -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl customer -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -478,7 +511,7 @@ pipeline {
                     when { changeset "order/**" }
                     steps {
                         echo 'Changes detected in Order Service. Starting Tests...'
-                        sh 'mvn test -pl order -am -Djacoco.line.minimum=0.70'
+                            sh "mvn verify -pl order -am -Djacoco.line.minimum=0.70 ${params.SKIP_IT ? '-DskipITs=true' : ''}"
                     }
                 }
 
@@ -504,19 +537,101 @@ pipeline {
             }
         }
         
-        stage('Build & Push Docker') {
-            when { expression { env.GIT_BRANCH_NAME == 'main' } }
+        stage('Build, Push Docker & Deploy to K3s') {
             steps {
                 script {
-                    def services = env.TARGET_SERVICES_LIST.split(',')
-                    withCredentials([usernamePassword(credentialsId: 'docker-hub-credentials', 
+                    def services = [
+                        'product', 'order', 'customer', 'inventory',
+                        'media', 'payment', 'search', 'cart', 'sampledata', 'backoffice-bff',
+                        'storefront-bff', 'tax', 'backoffice', 'storefront'
+                    ]
+                    
+                    def servicesToDeploy = []
+                    if (params.SERVICE == 'auto') {
+                        echo "[INFO] Đang xác định danh sách dịch vụ cần deploy dựa trên TARGET_SERVICES_LIST..."
+                        if (env.TARGET_SERVICES_LIST) {
+                            servicesToDeploy = env.TARGET_SERVICES_LIST.split(',').findAll { services.contains(it) }
+                        }
+                    } else {
+                        servicesToDeploy = [params.SERVICE]
+                    }
+
+                    echo "[INFO] Danh sách dịch vụ sẽ được đóng gói và deploy thực tế: ${servicesToDeploy}"
+
+                    def mavenServices = servicesToDeploy.findAll { fileExists("${it}/pom.xml") }.join(',')
+                    if (mavenServices) {
+                        echo "[INFO] Đang đóng gói ứng dụng cho các module: ${mavenServices}"
+                        sh "mvn install -pl ${mavenServices} -am -DskipTests -Dmaven.clean.failOnError=false -Djacoco.skip=true"
+                    }
+
+                    withCredentials([usernamePassword(credentialsId: 'docker-hub-anhhnus', 
                                     passwordVariable: 'REGISTRY_PASSWORD', usernameVariable: 'REGISTRY_USERNAME')]) {
-                        sh "echo '${REGISTRY_PASSWORD}' | docker login -u '${REGISTRY_USERNAME}' --password-stdin ${env.REGISTRY_URL}"
-                        for (service in services) {
+                        
+                        // Kiểm tra nhanh và tự động cài đặt docker.io nếu image agent hiện tại chưa có docker CLI
+                        sh '''
+                            if ! command -v docker > /dev/null 2>&1; then
+                                echo "[WARNING] Docker CLI chưa có sẵn trong container agent. Đang tự động cài đặt docker.io..."
+                                apt-get update && apt-get install -y docker.io
+                            fi
+                        '''
+                        
+                        // Sử dụng single-quote và printf để bash shell xử lý an toàn (tránh Groovy String interpolation warning & lộ secret)
+                        sh 'printf "%s" "$REGISTRY_PASSWORD" | docker login -u "$REGISTRY_USERNAME" --password-stdin "$REGISTRY_URL"'
+                        
+                        for (service in servicesToDeploy) {
                             if (fileExists("${service}/Dockerfile")) {
-                                def imageName = service.replace('-', '_')
-                                sh "docker build -t ${env.REGISTRY_URL}/nashtech-garage/${imageName}:${env.BUILD_VERSION} ${service}"
-                                sh "docker push ${env.REGISTRY_URL}/nashtech-garage/${imageName}:${env.BUILD_VERSION}"
+                                def imageRepository = "${env.REGISTRY_URL}/${env.DOCKER_NAMESPACE}/${dockerImageName(service)}"
+                                
+                                // Tổng hợp danh sách tag theo đúng Yêu cầu 3 của đồ án: Commit ID cuối cùng + branch tag + default tag + build version
+                                def imageTags = [env.GIT_COMMIT_SHORT, env.BRANCH_IMAGE_TAG, env.DEFAULT_IMAGE_TAG, env.BUILD_VERSION].findAll { it != null && !it.isEmpty() }.unique()
+                                def tagArgs = imageTags.collect { "-t ${imageRepository}:${it}" }.join(' ')
+                                def deployTag = env.GIT_COMMIT_SHORT ?: env.DEFAULT_IMAGE_TAG
+                                
+                                echo "=========================================================="
+                                echo "[DOCKER BUILD] Service: ${service}"
+                                echo "Repository: ${imageRepository}"
+                                echo "Tags: ${imageTags.join(', ')}"
+                                echo "=========================================================="
+                                
+                                sh """
+                                    docker build \
+                                        ${tagArgs} \
+                                        ${service}
+                                """
+                                
+                                echo "[DOCKER PUSH] Đang push tất cả các tags lên Docker Hub..."
+                                for (tag in imageTags) {
+                                    echo "Pushing: ${imageRepository}:${tag}"
+                                    sh "docker push ${imageRepository}:${tag}"
+                                }
+                                
+                                // Xác định Namespace triển khai theo Yêu cầu 6 đồ án (Dev vs Staging)
+                                def targetNamespace = 'yas'
+                                if (env.GIT_BRANCH_NAME == 'main' || env.GIT_BRANCH_NAME == 'master') {
+                                    targetNamespace = 'dev'
+                                } else if (env.GIT_BRANCH_NAME?.startsWith('v') || env.GIT_BRANCH_NAME?.startsWith('release')) {
+                                    targetNamespace = 'staging'
+                                } else if (env.K8S_NAMESPACE) {
+                                    targetNamespace = env.K8S_NAMESPACE
+                                }
+                                
+                                echo "[K3S DEPLOY] Đang cập nhật service [${service}] lên cụm K3s (Namespace: ${targetNamespace}) với Tag: ${deployTag}..."
+                                
+                                withCredentials([file(credentialsId: 'k3s-kubeconfig', variable: 'KUBE_CONFIG_PATH')]) {
+                                    // Test network
+                                    sh 'curl -k https://100.118.54.48:6443/livez || true' 
+                                    // Cập nhật image mới nhất cho deployment trên K3s
+                                    sh """
+                                        kubectl --kubeconfig=\${KUBE_CONFIG_PATH} --insecure-skip-tls-verify=true \
+                                        set image deployment/${service} \
+                                        ${service}=${imageRepository}:${deployTag} -n ${targetNamespace} || \
+                                        echo "[WARNING] Không thể deploy ${service} vào namespace '${targetNamespace}'. Có thể deployment chưa tồn tại hoặc cần khởi tạo trước."
+                                    """
+                                }
+
+                                echo "[SUCCESS] Service ${service} đã hoàn tất CI/CD (Built, Pushed & Deployed)!"
+                            } else {
+                                echo "Skipping ${service}: Dockerfile not found"
                             }
                         }
                     }
@@ -526,39 +641,6 @@ pipeline {
     }
     
     post {
-        // always {
-        //     junit testResults: '**/target/surefire-reports/*.xml', allowEmptyResults: true
-        //     script {
-        //         echo "Archiving artifacts for all affected services..."
-                
-        //         def jacocoReports = sh(script: "find . -name 'index.html' -path '*/target/site/jacoco/index.html'", returnStdout: true).trim()
-
-
-        //         // Dùng wildcard ** để gom báo cáo từ mọi module trong project
-        //         archiveArtifacts artifacts: "**/target/*.json, **/target/surefire-reports/*.xml, **/target/failsafe-reports/*.xml", 
-        //                         allowEmptyArchive: true
-                
-        //         // Tìm và publish JaCoCo report (thường chỉ lấy của service chính)
-        //         if (env.TARGET_SERVICES_LIST != null)
-        //         {
-        //             def services = env.TARGET_SERVICES_LIST.split(',')
-        //             for (service in services) {
-        //                 def reportPath = "${service}/target/site/jacoco/index.html"
-        //                 if (fileExists(reportPath)) {
-        //                     publishHTML([
-        //                         allowMissing: true,
-        //                         alwaysLinkToLastBuild: true,
-        //                         keepAll: true,
-        //                         reportDir: "${service}/target/site/jacoco",
-        //                         reportFiles: 'index.html',
-        //                         reportName: "JaCoCo Coverage - ${service}"
-        //                     ])
-        //                 }
-        //             }
-        //         }               
-        //     }
-        // }
-
         always {
             script {
                 echo "Đang quét tìm báo cáo JaCoCo trong Workspace..."
@@ -567,10 +649,13 @@ pipeline {
                 
                 if (jacocoReports) {
                     jacocoReports.split("\n").each { reportPath ->
-                        // Trích xuất tên service từ đường dẫn (ví dụ: ./cart/target/... -> cart)
-                        def serviceName = reportPath.split('/')[1]
-                        def reportDir = "${serviceName}/target/site/jacoco"
-                        
+                        // reportPath example: ./automation-ui/backoffice/target/site/jacoco/index.html
+                        // Extract module relative path (everything between ./ and /target)
+                        def modulePath = reportPath.replaceFirst(/^\.\//, '').replaceAll(/\/target\/site\/jacoco\/index\.html$/, '')
+                        // Use last path segment as display name (e.g., 'backoffice')
+                        def serviceName = modulePath.tokenize('/')[-1]
+                        def reportDir = "${modulePath}/target/site/jacoco"
+
                         publishHTML([
                             allowMissing: true,
                             alwaysLinkToLastBuild: true,

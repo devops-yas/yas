@@ -11,8 +11,18 @@ opentelemetryCollectorConfig:
         http:
           endpoint: 0.0.0.0:3500
       use_incoming_timestamp: true
+  connectors:
+    servicegraph:
+      latency_histogram_buckets: [100ms, 250ms, 1s, 5s, 10s]
+      dimensions:
+        - dimension-1
+        - dimension-2
+      store:
+        ttl: 2s
+        max_items: 20
+
   processors:
-    batch:
+    batch: {}
     attributes:
       actions:
         - action: insert
@@ -29,7 +39,14 @@ opentelemetryCollectorConfig:
       endpoint: http://loki-gateway/loki/api/v1/push
     otlphttp:
       endpoint: http://tempo:4318
+    prometheusremotewrite:
+      endpoint: http://prometheus-kube-prometheus-prometheus.observability.svc.cluster.local:9090/api/v1/write
+      resource_to_telemetry_conversion:
+        enabled: true
   service:
+    telemetry:
+      metrics:
+        address: 0.0.0.0:8889
     pipelines:
       logs:
         receivers: [loki]
@@ -38,4 +55,8 @@ opentelemetryCollectorConfig:
       traces:
         receivers: [otlp]
         processors: [batch]
-        exporters: [otlphttp]
+        exporters: [otlphttp, servicegraph]
+      metrics:
+        receivers: [otlp, servicegraph]
+        processors: [batch]
+        exporters: [prometheusremotewrite]

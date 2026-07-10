@@ -1,0 +1,4 @@
+FROM alpine:3.19
+WORKDIR /sample-images
+COPY ./images /sample-images
+CMD ["echo", "Sample images container ready"]
