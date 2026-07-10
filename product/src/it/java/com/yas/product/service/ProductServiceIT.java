@@ -430,5 +430,5 @@ class ProductServiceIT {
         List<ProductListVm> newResponse = productService.getLatestProducts(5);
         assertEquals(0, newResponse.size());
     }
-
+//make some changes
 }
