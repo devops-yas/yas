@@ -32,4 +32,5 @@ class ProductServiceIT {
         verify(productService, atLeastOnce()).handleProductThumbnailFallback(any());
     }
     //changes
+    //changes
 }
